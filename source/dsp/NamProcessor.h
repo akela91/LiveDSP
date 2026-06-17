@@ -64,6 +64,17 @@ public:
 
             newModel->Reset (sampleRate, maxBlockSize);
 
+            // LOUDNESS-NORMALIZÁLÁS: a NAM modellek beágyazott loudness metaadata
+            // alapján közös célszintre hozzuk a kimenetet. Enélkül egyes modellek
+            // (pl. 6505+) extrém hangosak és gerjednek, míg mások halkak.
+            float newGain = 1.0f;
+            if (newModel->HasLoudness())
+            {
+                constexpr double targetLoudnessDb = -18.0;
+                newGain = (float) juce::Decibels::decibelsToGain (
+                              targetLoudnessDb - newModel->GetLoudness());
+            }
+
             // A modell elvárt mintavételi frekvenciájának ellenőrzése.
             const double expected = newModel->GetExpectedSampleRate();
             if (expected > 0.0 && std::abs (expected - sampleRate) > 1.0)
@@ -77,6 +88,7 @@ public:
             {
                 const juce::SpinLock::ScopedLockType sl (modelLock);
                 model = std::move (newModel);
+                normalizationGain = newGain;
             }
             loadedName = namFile.getFileNameWithoutExtension();
             return true;
@@ -120,12 +132,13 @@ public:
         model->process (inChannels, outChannels, numSamples);
 
         for (int i = 0; i < numSamples; ++i)
-            samples[i] = (float) outBuffer[(size_t) i];
+            samples[i] = (float) outBuffer[(size_t) i] * normalizationGain;
     }
 
 private:
     std::unique_ptr<nam::DSP> model;
-    juce::SpinLock modelLock;   // a model pointer cseréjét védi
+    juce::SpinLock modelLock;   // a model pointer + normalizationGain cseréjét védi
+    float normalizationGain { 1.0f };
     juce::String loadedName;
     juce::String lastStatus { "nincs betöltési kísérlet" };
 

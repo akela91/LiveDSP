@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <climits>
 #include "PluginProcessor.h"
 #include "dsp/PitchDetector.h"
 
@@ -19,7 +20,7 @@ public:
     explicit TunerComponent (GuitarDspProcessor& p) : processorRef (p)
     {
         snapshot.resize ((size_t) snapshotSize, 0.0f);
-        detector.setRange (40.0f, 600.0f);
+        detector.setRange (40.0f, 1000.0f);
         startTimerHz (20);
     }
 
@@ -80,23 +81,49 @@ private:
 
         const auto r = detector.detect (snapshot.data(), snapshotSize);
 
-        if (r.frequency > 0.0f && r.clarity > 0.0f)
+        if (r.frequency > 0.0f && r.clarity >= minClarity)
         {
-            // Sima frekvencia-követés
-            frequency = smoothedFreq <= 0.0f ? r.frequency
-                                             : 0.8f * smoothedFreq + 0.2f * r.frequency;
-            smoothedFreq = frequency;
-            hasPitch = true;
+            silenceCount = 0;
 
-            const float midi = 69.0f + 12.0f * std::log2 (frequency / 440.0f);
-            const int   nearest = (int) std::lround (midi);
-            cents = (midi - (float) nearest) * 100.0f;
-            noteName = midiNoteName (nearest);
+            // Sima frekvencia-követés (octave-ugrás után gyorsabb újrakövetés).
+            const bool jumped = smoothedFreq > 0.0f
+                && (r.frequency > 1.6f * smoothedFreq || r.frequency < 0.6f * smoothedFreq);
+            if (smoothedFreq <= 0.0f || jumped)
+                smoothedFreq = r.frequency;
+            else
+                smoothedFreq = 0.85f * smoothedFreq + 0.15f * r.frequency;
+            frequency = smoothedFreq;
+
+            const float midiF   = 69.0f + 12.0f * std::log2 (frequency / 440.0f);
+            const int   nearest = (int) std::lround (midiF);
+
+            // HANG-STABILIZÁLÁS: csak több egymást követő stabil keret után váltunk
+            // hangot (megszünteti a magas hangok ugrálását).
+            if (nearest == pendingNote)
+            {
+                if (++pendingCount >= stableFramesNeeded || displayedNote == INT_MIN)
+                    displayedNote = nearest;
+            }
+            else
+            {
+                pendingNote  = nearest;
+                pendingCount = 1;
+                if (displayedNote == INT_MIN)
+                    displayedNote = nearest;
+            }
+
+            // A cent-eltérés a STABIL hanghoz képest.
+            cents    = (midiF - (float) displayedNote) * 100.0f;
+            noteName = midiNoteName (displayedNote);
+            hasPitch = true;
         }
-        else
+        else if (++silenceCount > 10)   // pár keret tartás, majd törlés
         {
-            hasPitch = false;
+            hasPitch     = false;
             smoothedFreq = 0.0f;
+            displayedNote = INT_MIN;
+            pendingNote   = INT_MIN;
+            pendingCount  = 0;
         }
 
         repaint();
@@ -123,6 +150,14 @@ private:
     float  smoothedFreq { 0.0f };
     float  cents        { 0.0f };
     juce::String noteName { "--" };
+
+    // Hang-stabilizálás
+    static constexpr int stableFramesNeeded = 2;
+    static constexpr float minClarity = 0.8f;
+    int displayedNote { INT_MIN };
+    int pendingNote   { INT_MIN };
+    int pendingCount  { 0 };
+    int silenceCount  { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TunerComponent)
 };

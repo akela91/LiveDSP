@@ -93,7 +93,7 @@ private:
     int    maxBlockSize { 512 };
     bool   enabled      { false };
     float  currentSemitones { 0.0f };
-    double blockMs      { 30.0 };   // alacsony latencia
+    double blockMs      { 50.0 };   // latencia/minőség egyensúly (pontosabb, mint 30 ms)
 
     std::vector<float> scratchIn;
     std::vector<float> scratchOut;

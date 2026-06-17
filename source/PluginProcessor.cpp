@@ -42,7 +42,14 @@ GuitarDspProcessor::GuitarDspProcessor()
     {
         auto namFiles = modelsDir.findChildFiles (juce::File::findFiles, true, "*.nam");
         if (! namFiles.isEmpty())
-            nam.loadModel (namFiles.getFirst());
+        {
+            // Preferált alapértelmezett modell; ha nincs meg, az első.
+            const juce::String preferred = "FR OD808 MBDR MW Red Mdn - 1 - 4FB LR SM57a";
+            juce::File toLoad = namFiles.getFirst();
+            for (const auto& f : namFiles)
+                if (f.getFileNameWithoutExtension() == preferred) { toLoad = f; break; }
+            nam.loadModel (toLoad);
+        }
 
         auto irFiles = modelsDir.findChildFiles (juce::File::findFiles, true, "*.wav");
         if (! irFiles.isEmpty())

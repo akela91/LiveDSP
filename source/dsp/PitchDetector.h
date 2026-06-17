@@ -5,13 +5,14 @@
 #include <cmath>
 
 /**
-    Egyszerű, robusztus hangmagasság-detektor a hangolóhoz (autokorreláció +
-    "clarity" küszöb + parabolikus interpoláció).
+    Hangmagasság-detektor a hangolóhoz — McLeod Pitch Method (MPM) alapú.
+
+    Normalizált négyzetes differencia függvény (NSDF) + "key maxima"
+    csúcsválasztás: a globális csúcs k-szorosát (0.9) elérő ELSŐ csúcsot
+    választja. Ez stabil, és elkerüli az oktáv-tévesztést (magas hangoknál is).
 
     NEM a hangszálon fut — az üzenetszálról (Timer) hívjuk egy másolt
-    bemeneti pufferre. Egyszálú használatra tervezve.
-
-    Tartomány alapból ~40–600 Hz (lehangolt gitár mély húrjaitól a magas fekvésig).
+    bemeneti pufferre.
 */
 class PitchDetector
 {
@@ -25,19 +26,18 @@ public:
     void setSampleRate (double sr) noexcept { sampleRate = sr; }
     void setRange (float minHz, float maxHz) noexcept { minFreq = minHz; maxFreq = maxHz; }
 
-    // A samples a legfrissebb monó bemeneti ablak (időrendben).
     Result detect (const float* samples, int numSamples)
     {
         Result result;
         if (numSamples < 256 || sampleRate <= 0.0)
             return result;
 
-        const int minLag = juce::jmax (2, (int) std::floor (sampleRate / maxFreq));
         const int maxLag = juce::jmin (numSamples - 1, (int) std::ceil (sampleRate / minFreq));
+        const int minLag = juce::jmax (2, (int) std::floor (sampleRate / maxFreq));
         if (maxLag <= minLag)
             return result;
 
-        // DC eltávolítás + jelenergia (gate a csendre).
+        // DC eltávolítás + energia (csend-gate).
         double mean = 0.0;
         for (int i = 0; i < numSamples; ++i)
             mean += samples[i];
@@ -51,18 +51,12 @@ public:
             work[(size_t) i] = v;
             energy += (double) v * v;
         }
-
-        // Túl halk -> nincs detektálás (kb. -50 dBFS RMS alatt).
-        if (energy / numSamples < 1.0e-5)
+        if (energy / numSamples < 1.0e-5)   // ~ -50 dBFS alatt nincs detektálás
             return result;
 
-        // Normalizált autokorreláció (NSDF-szerű) a lyukak/oktávtévesztés ellen.
-        // r(lag) = 2*sum(x[i]*x[i+lag]) / (sum(x[i]^2)+sum(x[i+lag]^2))
-        float bestValue = 0.0f;
-        int   bestLag   = -1;
-
-        float prev = 0.0f;
-        for (int lag = minLag; lag <= maxLag; ++lag)
+        // NSDF kiszámítása 0..maxLag-ig.
+        nsdf.assign ((size_t) (maxLag + 1), 0.0f);
+        for (int lag = 0; lag <= maxLag; ++lag)
         {
             double ac = 0.0, e0 = 0.0, e1 = 0.0;
             const int n = numSamples - lag;
@@ -75,58 +69,70 @@ public:
                 e1 += (double) b * b;
             }
             const float denom = (float) (e0 + e1);
-            const float nsdf  = denom > 0.0f ? (float) (2.0 * ac) / denom : 0.0f;
-
-            // Lokális csúcs megkeresése a küszöb felett (a legerősebbet tartjuk meg).
-            if (nsdf < prev && prev > bestValue && prev > clarityThreshold)
-            {
-                bestValue = prev;
-                bestLag   = lag - 1;
-            }
-            prev = nsdf;
+            nsdf[(size_t) lag] = denom > 0.0f ? (float) (2.0 * ac) / denom : 0.0f;
         }
 
-        if (bestLag < minLag)
+        // "Key maxima": minden pozitív-meredekségű nullátmenet utáni első
+        // lokális maximumot összegyűjtjük (a minLag-tól).
+        float globalMax = 0.0f;
+        int   chosenLag = -1;
+
+        // 1) globális csúcs a key maximák között
+        std::vector<int> keyLags;
+        {
+            int lag = minLag;
+            // előrelépés az első pozitív nullátmenetig
+            while (lag < maxLag && nsdf[(size_t) lag] > 0.0f) ++lag;
+            while (lag < maxLag)
+            {
+                if (nsdf[(size_t) lag] > 0.0f && nsdf[(size_t) (lag - 1)] <= 0.0f)
+                {
+                    // pozitív zónába léptünk -> keressük a lokális maximumot
+                    int   maxPos = lag;
+                    float maxVal = nsdf[(size_t) lag];
+                    while (lag < maxLag && nsdf[(size_t) lag] > 0.0f)
+                    {
+                        if (nsdf[(size_t) lag] > maxVal) { maxVal = nsdf[(size_t) lag]; maxPos = lag; }
+                        ++lag;
+                    }
+                    keyLags.push_back (maxPos);
+                    globalMax = juce::jmax (globalMax, maxVal);
+                }
+                else ++lag;
+            }
+        }
+
+        if (keyLags.empty() || globalMax <= clarityThreshold)
             return result;
 
-        // Parabolikus interpoláció a csúcs körül (finomabb frekvencia).
-        const float y0 = nsdfAt (bestLag - 1, numSamples);
-        const float y1 = nsdfAt (bestLag,     numSamples);
-        const float y2 = nsdfAt (bestLag + 1, numSamples);
-        float refinedLag = (float) bestLag;
+        // 2) az első key maximum, amely eléri a globális csúcs k-szorosát.
+        const float threshold = 0.9f * globalMax;
+        for (int kl : keyLags)
+            if (nsdf[(size_t) kl] >= threshold) { chosenLag = kl; break; }
+
+        if (chosenLag < minLag)
+            return result;
+
+        // 3) parabolikus interpoláció a választott csúcs körül.
+        const float y0 = chosenLag > 0 ? nsdf[(size_t) (chosenLag - 1)] : nsdf[(size_t) chosenLag];
+        const float y1 = nsdf[(size_t) chosenLag];
+        const float y2 = chosenLag + 1 <= maxLag ? nsdf[(size_t) (chosenLag + 1)] : nsdf[(size_t) chosenLag];
+        float refinedLag = (float) chosenLag;
         const float denom2 = (y0 - 2.0f * y1 + y2);
         if (std::abs (denom2) > 1.0e-9f)
             refinedLag += 0.5f * (y0 - y2) / denom2;
 
         result.frequency = (float) (sampleRate / refinedLag);
-        result.clarity   = juce::jlimit (0.0f, 1.0f, bestValue);
+        result.clarity   = juce::jlimit (0.0f, 1.0f, globalMax);
         return result;
     }
 
 private:
-    // NSDF egy adott lag-re (a parabolikus finomításhoz; work[] már elő van készítve).
-    float nsdfAt (int lag, int numSamples)
-    {
-        if (lag < 1 || lag >= numSamples)
-            return 0.0f;
-        double ac = 0.0, e0 = 0.0, e1 = 0.0;
-        const int n = numSamples - lag;
-        for (int i = 0; i < n; ++i)
-        {
-            const float a = work[(size_t) i];
-            const float b = work[(size_t) (i + lag)];
-            ac += (double) a * b;
-            e0 += (double) a * a;
-            e1 += (double) b * b;
-        }
-        const float denom = (float) (e0 + e1);
-        return denom > 0.0f ? (float) (2.0 * ac) / denom : 0.0f;
-    }
-
     double sampleRate { 48000.0 };
     float  minFreq    { 40.0f };
-    float  maxFreq    { 600.0f };
-    float  clarityThreshold { 0.6f };
+    float  maxFreq    { 1200.0f };   // magas fekvésig
+    float  clarityThreshold { 0.7f };
 
     std::vector<float> work;
+    std::vector<float> nsdf;
 };

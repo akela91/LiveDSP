@@ -10,8 +10,12 @@ project(LiveDSP VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Statikus MSVC runtime nem szükséges; a JUCE standalone önállóan fut.
+# Statikus MSVC runtime: így az .exe nem függ a Visual C++ Redistributable-től,
+# tehát a telepített/portable build TELEPÍTÉS NÉLKÜL fut bármely Windows gépen.
+# FONTOS: a CMAKE_MSVC_RUNTIME_LIBRARY-t MINDEN cél (juce_add_plugin, statikus
+# libek) létrehozása ELŐTT kell beállítani, hogy egységes runtime-ot kapjanak.
 if (MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     add_compile_options(/MP)        # többszálú fordítás
     # A forrásfájlok UTF-8-ban vannak, és a futtatási (execution) charset is UTF-8
     # legyen — különben az ékezetes string-literálok (pl. "Válassz módot") a
@@ -188,3 +192,42 @@ target_link_libraries(LiveDSP PRIVATE
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags)
+
+# ---------------------------------------------------------------------------
+# Telepítő automatikus fordítása a Release build után (Inno Setup)
+# ---------------------------------------------------------------------------
+# Minden Release build VÉGÉN lefut a cmake/BuildInstaller.cmake, ami az
+# installer/LiveDSP.iss-ből megépíti a telepítőt (installer/Output/...).
+# A szkript csak Release-ben és csak megtalált ISCC esetén dolgozik, így a
+# Debug/inkrementális buildek gyorsak maradnak. Kikapcsolható:
+#   cmake -B build -DLIVEDSP_BUILD_INSTALLER=OFF
+option(LIVEDSP_BUILD_INSTALLER
+    "Release buildkor automatikusan fordítsa az Inno Setup telepítőt" ON)
+
+if (WIN32 AND LIVEDSP_BUILD_INSTALLER)
+    find_program(LIVEDSP_ISCC
+        NAMES ISCC ISCC.exe
+        PATHS
+            "$ENV{LOCALAPPDATA}/Programs/Inno Setup 6"
+            "$ENV{ProgramFiles}/Inno Setup 6"
+            "$ENV{ProgramFiles\(x86\)}/Inno Setup 6"
+        DOC "Inno Setup parancssori fordító (ISCC.exe)")
+
+    if (LIVEDSP_ISCC)
+        message(STATUS "LiveDSP: Inno Setup megtalálva (${LIVEDSP_ISCC}) — Release buildkor automatikus telepítő.")
+    else()
+        message(STATUS "LiveDSP: Inno Setup (ISCC) nem található — telepítő kihagyva. Telepítés: winget install JRSoftware.InnoSetup")
+    endif()
+
+    # POST_BUILD: a config ($<CONFIG>) és a verzió átadása a szkriptnek; a
+    # nem-Release / hiányzó-ISCC esetet maga a szkript kezeli (csendes kihagyás).
+    add_custom_command(TARGET LiveDSP_Standalone POST_BUILD
+        COMMAND "${CMAKE_COMMAND}"
+                "-DISCC=${LIVEDSP_ISCC}"
+                "-DISS=${CMAKE_CURRENT_SOURCE_DIR}/installer/LiveDSP.iss"
+                "-DCFG=$<CONFIG>"
+                "-DVER=${PROJECT_VERSION}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/BuildInstaller.cmake"
+        VERBATIM
+        COMMENT "LiveDSP: telepítő fordítása (csak Release)")
+endif()

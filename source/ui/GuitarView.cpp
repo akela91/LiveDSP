@@ -1,4 +1,5 @@
 #include "GuitarView.h"
+#include "../AppPaths.h"
 
 GuitarView::GuitarView (LiveDspProcessor& p)
     : processorRef (p),
@@ -108,11 +109,8 @@ void GuitarView::populateAmpModels()
     if (ampPanel == nullptr) return;
     auto& combo = ampPanel->getCombo();
 
-   #if defined (LIVEDSP_DEFAULT_MODELS_DIR)
-    juce::File dir { LIVEDSP_DEFAULT_MODELS_DIR };
-    if (dir.isDirectory())
+    if (auto dir = livedsp::getModelsDir(); dir.isDirectory())
         modelFiles = dir.findChildFiles (juce::File::findFiles, true, "*.nam");
-   #endif
 
     int id = 1;
     for (const auto& f : modelFiles)
@@ -139,11 +137,8 @@ void GuitarView::populateCabIrs()
     if (cabPanel == nullptr) return;
     auto& combo = cabPanel->getCombo();
 
-   #if defined (LIVEDSP_DEFAULT_MODELS_DIR)
-    juce::File dir { LIVEDSP_DEFAULT_MODELS_DIR };
-    if (dir.isDirectory())
+    if (auto dir = livedsp::getModelsDir(); dir.isDirectory())
         irFiles = dir.findChildFiles (juce::File::findFiles, true, "*.wav");
-   #endif
 
     int id = 1;
     for (const auto& f : irFiles)
@@ -167,11 +162,8 @@ void GuitarView::populateCabIrs()
 
 void GuitarView::populatePresetSelector()
 {
-   #if defined (LIVEDSP_FAVS_DIR)
-    juce::File dir { LIVEDSP_FAVS_DIR };
-    if (dir.isDirectory())
+    if (auto dir = livedsp::getFavsDir(); dir.isDirectory())
         presetFiles = dir.findChildFiles (juce::File::findFiles, false, "*");
-   #endif
 
     int id = 1;
     for (const auto& f : presetFiles)

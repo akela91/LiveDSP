@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "AppPaths.h"
 
 //==============================================================================
 LiveDspProcessor::LiveDspProcessor()
@@ -63,8 +64,7 @@ LiveDspProcessor::LiveDspProcessor()
     // státusz helyesen jelenjen meg és azonnal szóljon. A loadModel itt a
     // tag-alapértelmezett SR-rel Reset-el; a prepareToPlay később újra Reset-el
     // a valódi mintavételi frekvenciával.
-   #if defined (LIVEDSP_DEFAULT_MODELS_DIR)
-    if (juce::File modelsDir { LIVEDSP_DEFAULT_MODELS_DIR }; modelsDir.isDirectory())
+    if (auto modelsDir = livedsp::getModelsDir(); modelsDir.isDirectory())
     {
         auto namFiles = modelsDir.findChildFiles (juce::File::findFiles, true, "*.nam");
         if (! namFiles.isEmpty())
@@ -81,7 +81,6 @@ LiveDspProcessor::LiveDspProcessor()
         if (! irFiles.isEmpty())
             cab.loadIR (irFiles.getFirst());   // betöltve, de a Cab alapból OFF
     }
-   #endif
 }
 
 //==============================================================================

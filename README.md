@@ -90,6 +90,66 @@ A standalone alkalmazás:
 > Megjegyzés: a forrásfájlok UTF-8 kódolásúak; az MSVC `/utf-8` kapcsolóval fordul
 > (az ékezetes feliratok `juce::String::fromUTF8(...)`-on keresztül jelennek meg).
 
+## Telepítő készítése (terjesztés)
+
+A kész alkalmazás **next-next-finish telepítőként** adható át bármely 64-bites
+Windows gépnek. A telepítő egyetlen `.exe`, ami a programot a NAM modellekkel és
+a gyári presetekkel együtt telepíti, és **nem igényel semmilyen futtatókörnyezetet**
+a célgépen (statikus MSVC runtime → nincs Visual C++ Redistributable függőség).
+
+### Egyszeri előfeltétel: Inno Setup
+
+```powershell
+winget install JRSoftware.InnoSetup
+```
+
+> A `winget` és az `ISCC.exe` nincs feltétlenül a PATH-on. Ha a CMake nem találja,
+> teljes útvonallal hívd; tipikus per-user hely:
+> `%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe`.
+
+### Automatikus build (ajánlott)
+
+A telepítő **minden Release build végén automatikusan újragenerálódik** — nincs
+külön teendő. A CMake a konfiguráláskor megkeresi az `ISCC.exe`-t, és a standalone
+build után lefordítja az `installer/LiveDSP.iss`-t.
+
+```powershell
+cmake -B build -G "Visual Studio 17 2022" -A x64 -DLIVEDSP_ASIO_SDK_DIR="C:/SDKs/asiosdk"
+cmake --build build --config Release
+# -> installer/Output/LiveDSP-Setup-<verzió>.exe  (~17 MB)
+```
+
+- Csak **Release**-ben fut (Debug/inkrementális build érintetlen, gyors marad).
+- Ha az Inno Setup nincs telepítve, a build sikeres marad, csak a telepítőt hagyja ki.
+- Kikapcsolható: `cmake -B build -DLIVEDSP_BUILD_INSTALLER=OFF`.
+- A verzió a `project(LiveDSP VERSION ...)`-ból jön (a CMake adja át az `.iss`-nek).
+
+### Kézi build (Inno Setup nélküli CMake esetén)
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\LiveDSP.iss
+```
+
+### Telepítés a célgépen (végfelhasználó)
+
+1. Másold át a `LiveDSP-Setup-<verzió>.exe`-t a másik PC-re, és futtasd → **Tovább → Tovább → Befejezés**.
+   (A Program Files-ba telepítés adminjogot kér; Start menü ikon, opcionálisan asztali ikon.)
+2. Indítsd a **LiveDSP**-t, a landing képernyőn válassz **GuitarDSP** vagy **VoiceDSP** modult.
+3. **Audio Settings** → válaszd a hangkártya **ASIO** driverét, és állíts alacsony puffert.
+
+> **ASIO a célgépen:** az alacsony latenciához a célgépen is kell egy ASIO driver
+> (a hangkártya gyári drivere, vagy [ASIO4ALL](https://asio4all.org)). Ezt a telepítő
+> nem tartalmazhatja (hardver/driver kérdés). ASIO nélkül a WASAPI fallback működik,
+> nagyobb késleltetéssel.
+
+### Mit csomagol / hogyan tölti be a modelleket
+
+A telepítő a `models/` (NAM + IR) és `favs/` (presetek) mappát az `.exe` mellé
+teszi. Az app futásidőben az [`source/AppPaths.h`](source/AppPaths.h) szerint old fel:
+**előbb az exe melletti mappát** nézi (telepített eset), majd fejlesztéskor a
+build-időben befordított forrásmappára (`LIVEDSP_DEFAULT_MODELS_DIR` /
+`LIVEDSP_FAVS_DIR`) esik vissza — így az IDE-ből és a telepített buildből is működik.
+
 ## Modellek / IR
 
 A `models/` mappa tartalma indításkor automatikusan elérhető (az első `.nam`

@@ -3,6 +3,9 @@
 /out/
 cmake-build-*/
 
+# Installer kimenet (a lefordított Setup.exe-t nem verziózzuk; az .iss igen)
+/installer/Output/
+
 # IDE
 .vs/
 .vscode/

@@ -20,7 +20,7 @@ class VocalView : public AppView,
 public:
     explicit VocalView (GuitarDspProcessor& p) : processorRef (p)
     {
-        titleLabel.setText ("VOCAL", juce::dontSendNotification);
+        titleLabel.setText ("VoiceDSP", juce::dontSendNotification);
         titleLabel.setFont (juce::Font (juce::FontOptions (19.0f, juce::Font::bold)));
         titleLabel.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cAccent));
         addAndMakeVisible (titleLabel);

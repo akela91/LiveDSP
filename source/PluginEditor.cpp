@@ -68,14 +68,22 @@ void GuitarDspEditor::showMode (int mode)
     if (resiz)
         setResizeLimits (900, 440, 1500, 1000);
 
-    setSize (view->defaultWidth(), view->defaultHeight());
-
-    // A FIX méret rákényszerítése a top-level ablakra is (a szerkesztő setSize-a
-    // önmagában nem mindig zsugorítja vissza egy korábban felnagyított ablakot).
+    // EGYETLEN méretezés, hogy ne villanjon: ha van top-level ablak, csak azt
+    // méretezzük (a szerkesztő mint tartalom követi) — nem hívunk külön
+    // editor.setSize-t is, mert a kettő két layout-ot/átméretezést okozna.
     if (auto* top = getTopLevelComponent(); top != nullptr && top != this)
-        top->setSize (view->defaultWidth() + chromeW, view->defaultHeight() + chromeH);
-
-    resized();
+    {
+        const int w = view->defaultWidth()  + chromeW;
+        const int h = view->defaultHeight() + chromeH;
+        if (top->getWidth() != w || top->getHeight() != h)
+            top->setSize (w, h);   // ez átméretezi a tartalmat -> a nézet kitölti
+        else
+            resized();             // a méret már jó, csak az új nézetet rendezzük
+    }
+    else
+    {
+        setSize (view->defaultWidth(), view->defaultHeight());
+    }
 }
 
 void GuitarDspEditor::paint (juce::Graphics& g)

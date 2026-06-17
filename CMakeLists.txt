@@ -1,7 +1,7 @@
 # 3.24 kell a Signalsmith Stretch saját CMakeLists-éhez.
 cmake_minimum_required(VERSION 3.24)
 
-project(guitarDSP VERSION 0.1.0 LANGUAGES C CXX)
+project(LiveDSP VERSION 0.1.0 LANGUAGES C CXX)
 
 # ---------------------------------------------------------------------------
 # Global settings
@@ -120,10 +120,10 @@ set(GUITARDSP_ASIO_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext/asiosdk"
 set(GUITARDSP_HAS_ASIO FALSE)
 if (EXISTS "${GUITARDSP_ASIO_SDK_DIR}/common/iasiodrv.h")
     set(GUITARDSP_HAS_ASIO TRUE)
-    message(STATUS "guitarDSP: ASIO SDK megtalálva itt: ${GUITARDSP_ASIO_SDK_DIR}")
+    message(STATUS "LiveDSP: ASIO SDK megtalálva itt: ${GUITARDSP_ASIO_SDK_DIR}")
 else()
     message(WARNING
-        "guitarDSP: ASIO SDK NEM található (${GUITARDSP_ASIO_SDK_DIR}).\n"
+        "LiveDSP: ASIO SDK NEM található (${GUITARDSP_ASIO_SDK_DIR}).\n"
         "  A build folytatódik ASIO NÉLKÜL (WASAPI/DirectSound fallback).\n"
         "  Az alacsony latenciás ASIO-hoz töltsd le a Steinberg ASIO SDK-t és add meg:\n"
         "  cmake -B build -DGUITARDSP_ASIO_SDK_DIR=\"C:/utvonal/asiosdk\"")
@@ -132,10 +132,10 @@ endif()
 # ---------------------------------------------------------------------------
 # A plugin/standalone cél
 # ---------------------------------------------------------------------------
-juce_add_plugin(guitarDSP
-    PRODUCT_NAME            "guitarDSP"
+juce_add_plugin(LiveDSP
+    PRODUCT_NAME            "LiveDSP"
     COMPANY_NAME            "Qulto"
-    BUNDLE_ID               "eu.qulto.guitarDSP"
+    BUNDLE_ID               "eu.qulto.LiveDSP"
     PLUGIN_MANUFACTURER_CODE Qult
     PLUGIN_CODE             Gdsp
     ICON_BIG                "${CMAKE_CURRENT_SOURCE_DIR}/resources/AppIcon.png"
@@ -147,18 +147,18 @@ juce_add_plugin(guitarDSP
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE)
 
-juce_generate_juce_header(guitarDSP)
+juce_generate_juce_header(LiveDSP)
 
-target_sources(guitarDSP PRIVATE
+target_sources(LiveDSP PRIVATE
     source/PluginProcessor.cpp
     source/PluginEditor.cpp
     source/ui/GuitarView.cpp)
 
-target_include_directories(guitarDSP PRIVATE
+target_include_directories(LiveDSP PRIVATE
     source
     source/dsp)
 
-target_compile_definitions(guitarDSP PUBLIC
+target_compile_definitions(LiveDSP PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
@@ -170,11 +170,11 @@ target_compile_definitions(guitarDSP PUBLIC
 
 # ASIO bekapcsolása, ha elérhető az SDK
 if (GUITARDSP_HAS_ASIO)
-    target_compile_definitions(guitarDSP PUBLIC JUCE_ASIO=1)
-    target_include_directories(guitarDSP PRIVATE "${GUITARDSP_ASIO_SDK_DIR}/common")
+    target_compile_definitions(LiveDSP PUBLIC JUCE_ASIO=1)
+    target_include_directories(LiveDSP PRIVATE "${GUITARDSP_ASIO_SDK_DIR}/common")
 endif()
 
-target_link_libraries(guitarDSP PRIVATE
+target_link_libraries(LiveDSP PRIVATE
     signalsmith-stretch
     rubberband
     # WHOLE_ARCHIVE: a NAM architektúrák file-scope statikus inicializálókkal

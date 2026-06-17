@@ -18,9 +18,13 @@ public:
 
     void resized() override;
     void paint (juce::Graphics&) override;
+    void parentHierarchyChanged() override;
 
 private:
     void showMode (int mode);
+    // Hide the standalone window's "Options" (audio settings) button on the
+    // landing screen; show it once a mode (guitar/vocal) is chosen.
+    void updateOptionsButtonVisibility();
 
     LiveDspProcessor&        processorRef;
     LiveLookAndFeel          lnf;

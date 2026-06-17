@@ -7,60 +7,77 @@
 //
 // Models (NAM/IR) and presets ("favs") are NOT shipped with the app (the
 // commercial captures cannot be redistributed). They live in a user-writable
-// folder so the in-app "Browse" feature can copy files there without admin
-// rights, and so users can simply extract downloaded rigs into a visible path:
+// folder that is created automatically on first launch, so the in-app "Browse"
+// feature can copy files there without admin rights, and users can simply
+// extract downloaded rigs/IRs into a visible path:
 //
 //     <Documents>/LiveDSP/models      (.nam models + .wav IRs)
-//     <Documents>/LiveDSP/favs        (saved presets)
+//     <Documents>/LiveDSP/favs         (saved presets)
 //
-// During development we instead use the source folders baked in at build time
-// (LIVEDSP_DEFAULT_MODELS_DIR / LIVEDSP_FAVS_DIR) when they exist, so an exe
-// launched from the IDE keeps working against the repo's local content.
-//
-// Resolution order: 1) dev folder baked in at build time (if it exists),
-// 2) <Documents>/LiveDSP/<name> (created on demand). The returned folder is
-// always writable, so it doubles as the target for the Browse/import feature.
+// During development the source folders baked in at build time
+// (LIVEDSP_DEFAULT_MODELS_DIR / LIVEDSP_FAVS_DIR) are used as a fallback when
+// the user folder is still empty, so an exe launched from the IDE keeps working
+// against the repo's local content.
 // ---------------------------------------------------------------------------
 namespace livedsp
 {
-    inline juce::File userResourceDir (const juce::String& folderName)
+    inline juce::File baseDir()
     {
-        auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                       .getChildFile ("LiveDSP")
-                       .getChildFile (folderName);
-        dir.createDirectory();   // ensure the writable target exists on first run
-        return dir;
+        return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                   .getChildFile ("LiveDSP");
     }
 
-    inline juce::File resolveResourceDir (const juce::String& folderName,
-                                          const char* devFallback)
+    // Always-created, user-writable folders. These are the Browse/import target
+    // and the path the README points users to.
+    inline juce::File getUserModelsDir()
     {
-        // 1) Development: the source folder baked in at build time, if present.
-        if (devFallback != nullptr)
-            if (juce::File dev { juce::String::fromUTF8 (devFallback) }; dev.isDirectory())
-                return dev;
-
-        // 2) End user: <Documents>/LiveDSP/<folderName> (writable, auto-created).
-        return userResourceDir (folderName);
+        auto d = baseDir().getChildFile ("models");
+        d.createDirectory();
+        return d;
     }
 
-    // Folder for NAM models (.nam) and IRs (.wav). Writable; also the Browse target.
+    inline juce::File getUserFavsDir()
+    {
+        auto d = baseDir().getChildFile ("favs");
+        d.createDirectory();
+        return d;
+    }
+
+    inline bool dirHasFiles (const juce::File& d, const juce::String& wildcard)
+    {
+        return d.isDirectory()
+            && ! d.findChildFiles (juce::File::findFiles, true, wildcard).isEmpty();
+    }
+
+    // Read location for models/IRs: prefer the user folder once it has content;
+    // otherwise the dev fallback (if present); otherwise the (empty) user folder.
+    // The user folder is always created as a side effect, so it is findable.
     inline juce::File getModelsDir()
     {
+        const auto user = getUserModelsDir();
+        if (dirHasFiles (user, "*.nam") || dirHasFiles (user, "*.wav"))
+            return user;
+
        #if defined (LIVEDSP_DEFAULT_MODELS_DIR)
-        return resolveResourceDir ("models", LIVEDSP_DEFAULT_MODELS_DIR);
-       #else
-        return resolveResourceDir ("models", nullptr);
+        if (juce::File dev { juce::String::fromUTF8 (LIVEDSP_DEFAULT_MODELS_DIR) }; dev.isDirectory())
+            return dev;
        #endif
+
+        return user;
     }
 
-    // Folder for saved presets ("favs"). Writable.
+    // Read location for presets, same strategy as getModelsDir().
     inline juce::File getFavsDir()
     {
+        const auto user = getUserFavsDir();
+        if (dirHasFiles (user, "*"))
+            return user;
+
        #if defined (LIVEDSP_FAVS_DIR)
-        return resolveResourceDir ("favs", LIVEDSP_FAVS_DIR);
-       #else
-        return resolveResourceDir ("favs", nullptr);
+        if (juce::File dev { juce::String::fromUTF8 (LIVEDSP_FAVS_DIR) }; dev.isDirectory())
+            return dev;
        #endif
+
+        return user;
     }
 }

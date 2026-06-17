@@ -529,6 +529,17 @@ juce::AudioProcessorEditor* LiveDspProcessor::createEditor()
     return new LiveDspEditor (*this);
 }
 
+// Find a model/IR file by name (e.g. "MyRig.nam") in the active models folder.
+// Returns an invalid File if not found.
+static juce::File findModelFile (const juce::String& fileName)
+{
+    const auto dir = livedsp::getModelsDir();
+    if (! dir.isDirectory())
+        return {};
+    const auto matches = dir.findChildFiles (juce::File::findFiles, true, fileName);
+    return matches.isEmpty() ? juce::File() : matches.getFirst();
+}
+
 void LiveDspProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     if (auto state = apvts.copyState(); state.isValid())
@@ -537,6 +548,9 @@ void LiveDspProcessor::getStateInformation (juce::MemoryBlock& destData)
         // Input channel selection per mode (not an APVTS param, but persistent).
         xml->setAttribute ("guitarInputCh", guitarInputCh.load());
         xml->setAttribute ("vocalInputCh",  vocalInputCh.load());
+        // Selected amp model / cab IR (by name, so presets stay portable).
+        if (nam.isLoaded()) xml->setAttribute ("ampModel", nam.getLoadedName());
+        if (cab.isLoaded()) xml->setAttribute ("cabIr",    cab.getLoadedName());
         copyXmlToBinary (*xml, destData);
     }
 }
@@ -549,6 +563,21 @@ void LiveDspProcessor::setStateInformation (const void* data, int sizeInBytes)
             guitarInputCh.store (xml->getIntAttribute ("guitarInputCh", 0));
             vocalInputCh.store  (xml->getIntAttribute ("vocalInputCh",  0));
             apvts.replaceState (juce::ValueTree::fromXml (*xml));
+
+            // Restore the selected amp model / cab IR by name. These attributes
+            // are OPTIONAL — older presets (without them) are left untouched and
+            // remain loadable. If the referenced file is missing, the slot is
+            // left empty rather than failing.
+            if (xml->hasAttribute ("ampModel"))
+            {
+                const auto f = findModelFile (xml->getStringAttribute ("ampModel") + ".nam");
+                if (f.existsAsFile()) nam.loadModel (f); else nam.unload();
+            }
+            if (xml->hasAttribute ("cabIr"))
+            {
+                const auto f = findModelFile (xml->getStringAttribute ("cabIr") + ".wav");
+                if (f.existsAsFile()) cab.loadIR (f); else cab.unload();
+            }
         }
 }
 

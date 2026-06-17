@@ -66,42 +66,61 @@ The whole vocal chain is **zero-latency**; all settings (every vocal parameter)
 are persisted in the state. COMP/AIR/REVERB and GATE/WARMTH/DELAY can each be
 toggled on/off.
 
-## Models / rigs (NAM) and presets
+## Models / rigs (NAM) and IRs
 
-NAM models/rigs and presets are **not bundled** with the app (commercial
-captures cannot be redistributed). They live in a user-writable folder that is
-created automatically on first launch:
+NAM models/rigs, cabinet IRs, and presets are **not bundled** with the app
+(commercial captures cannot be redistributed). They live in a user-writable
+folder that **LiveDSP creates automatically the first time you launch it**:
 
 ```
-Documents\LiveDSP\models     ← .nam models and .wav IRs
-Documents\LiveDSP\favs       ← saved presets
+<Documents>\LiveDSP\models     ← .nam models AND .wav cabinet IRs
+<Documents>\LiveDSP\favs       ← saved presets
 ```
 
-### Getting a rig to try
+`<Documents>` is your Windows Documents folder, so the full path is usually:
 
-A ready-made full rig to start with (Mesa Dual Rectifier, MW Red Modern, Mesa
-4x12 — full rig):
+```
+C:\Users\<YourName>\Documents\LiveDSP\models
+```
 
-**https://www.tone3000.com/tones/mesa-dual-rectifier-mw-red-modern-mesa-4x12-full-rig-69206**
+> If your Documents folder is redirected to OneDrive, it is instead under
+> `C:\Users\<YourName>\OneDrive\Documents\LiveDSP\models`. The easiest way to be
+> sure is to use the in-app **Browse** button (below), which always copies into
+> the correct folder — you never have to find it by hand.
+>
+> **Launch LiveDSP once first** so the folder gets created, then it is there
+> waiting for your files.
 
-Two ways to install it:
+### Getting a rig and IRs to try
 
-1. **Browse (easiest).** Launch LiveDSP → GuitarDSP, then on the **AMP/RIG**
-   panel click **Browse**, pick the downloaded `.nam` file, and it is copied into
-   `Documents\LiveDSP\models` and loaded automatically. (The download link on the
-   AMP/RIG panel is shown only until the first model is loaded.)
-2. **Manual copy.** Download and unzip the rig, then copy the `.nam` file(s)
-   (and any `.wav` IRs) into:
-   ```
-   %USERPROFILE%\Documents\LiveDSP\models
-   ```
-   Restart LiveDSP (or reopen GuitarDSP) and pick the model from the AMP/RIG
-   drop-down. The folder is created automatically the first time you launch the
-   app, so it is already there waiting for your files.
+- A ready-made full rig (Mesa Dual Rectifier, MW Red Modern, Mesa 4x12 — full rig):
+  **https://www.tone3000.com/tones/mesa-dual-rectifier-mw-red-modern-mesa-4x12-full-rig-69206**
+- Free cabinet IRs (`.wav`): **https://www.tone3000.com/search?order=downloads-all-time&gears=ir**
+
+The same links are available **inside the app**: on the GuitarDSP screen the
+**AMP/RIG** panel shows a "Download a rig" link and the **CAB** panel shows a
+"Download IRs" link — each is shown only until the first model / IR is loaded.
+
+Two ways to install a downloaded file:
+
+1. **Browse / import (easiest).** Launch LiveDSP → GuitarDSP, then click
+   **Browse** on the **AMP/RIG** panel (for a `.nam` rig) or the **CAB** panel
+   (for a `.wav` IR), pick the file, and it is copied into your models folder and
+   loaded automatically. No need to know the path.
+2. **Manual copy.** Unzip the download and copy the `.nam` and/or `.wav` files
+   into `…\Documents\LiveDSP\models` (the folder created on first launch). Then
+   reopen GuitarDSP and pick the entry from the AMP/RIG or CAB drop-down.
 
 > Many NAM captures are **"Full Rig"** type (they include the cabinet), so the
 > **Cab IR is OFF by default** (no double cab). Only enable a separate IR for an
 > "amp-only" (preamp/DI) NAM model.
+
+### Presets (Save / Load current state)
+
+The standalone **Options → Save current state** also stores the selected
+AMP/RIG and cabinet IR (by name). **Load current state** restores them if the
+referenced files are present; if a model/IR is missing, that slot is simply
+left empty (no error), and older presets without this info still load fine.
 
 ## Dependencies
 

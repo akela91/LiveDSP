@@ -84,6 +84,30 @@ void LiveDspEditor::showMode (int mode)
     // (otherwise the freshly created view's panels would appear with 0 size, i.e.
     // empty).
     resized();
+
+    updateOptionsButtonVisibility();
+}
+
+void LiveDspEditor::parentHierarchyChanged()
+{
+    // The standalone window (and its Options button) only exists once we are
+    // parented, so re-apply the visibility here too.
+    updateOptionsButtonVisibility();
+}
+
+void LiveDspEditor::updateOptionsButtonVisibility()
+{
+    using AppMode = LiveDspProcessor::AppMode;
+    const bool onLanding = (processorRef.getAppMode() == (int) AppMode::none);
+
+    // The standalone wrapper adds a "Options" (audio settings) TextButton to the
+    // top-level window's title bar. Hide it on the landing screen. (In a plugin
+    // build there is no such button; the loop simply finds nothing.)
+    if (auto* top = getTopLevelComponent(); top != nullptr && top != this)
+        for (auto* child : top->getChildren())
+            if (auto* button = dynamic_cast<juce::TextButton*> (child))
+                if (button->getButtonText() == "Options")
+                    button->setVisible (! onLanding);
 }
 
 void LiveDspEditor::paint (juce::Graphics& g)

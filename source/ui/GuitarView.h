@@ -34,8 +34,10 @@ private:
     void populateAmpModels();
     void importAmpModel (const juce::File& source);   // copy an external .nam in and load it
     void populateCabIrs();
+    void importCabIr (const juce::File& source);     // copy an external .wav IR in and load it
     void populatePresetSelector();
     void updateStatusLabel();
+    void syncSelectors();   // keep the AMP/RIG + CAB combos in sync with the loaded model/IR
     void layoutRow (juce::Rectangle<int> area, juce::OwnedArray<PanelBase>& panels);
     void timerCallback() override;
 

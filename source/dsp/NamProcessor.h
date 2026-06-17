@@ -106,6 +106,16 @@ public:
         }
     }
 
+    /** Unloads the current model (leaves the slot empty). Message thread.
+        Used when restoring a state whose referenced model is missing. */
+    void unload()
+    {
+        const juce::SpinLock::ScopedLockType sl (modelLock);
+        model.reset();
+        loadedName = {};
+        lastStatus = "no model loaded";
+    }
+
     bool isLoaded() const noexcept { return model != nullptr; }
     juce::String getLoadedName() const { return loadedName; }
     juce::String getLastStatus() const { return lastStatus; }

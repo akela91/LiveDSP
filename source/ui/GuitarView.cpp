@@ -19,6 +19,7 @@ GuitarView::GuitarView (LiveDspProcessor& p)
             juce::MemoryBlock mb;
             if (presetFiles[idx].loadFileAsData (mb))
                 processorRef.setStateInformation (mb.getData(), (int) mb.getSize());
+            syncSelectors();
             updateStatusLabel();
         }
     };
@@ -97,6 +98,12 @@ void GuitarView::buildPanels()
 
     // Row 2 — end of the signal chain: cabinet (with IR selector), EQ, time-FX, output.
     cabPanel = new ComboPanel (processorRef.apvts, "CAB", "cabOn", ComboPanel::Icon::cab);
+    // Same logic as AMP/RIG: import an external .wav IR (copied into the models
+    // folder and loaded) + a download link shown only while no IR is loaded.
+    cabPanel->enableBrowse ("*.wav", juce::String::fromUTF8 ("Import .wav…"),
+                            [this] (const juce::File& f) { importCabIr (f); });
+    cabPanel->setDownloadLink (juce::String::fromUTF8 ("Download IRs →"),
+                               juce::URL ("https://www.tone3000.com/search?order=downloads-all-time&gears=ir"));
     row2.add (cabPanel);
 
     row2.add (new EqPanel (processorRef.apvts,
@@ -146,10 +153,8 @@ void GuitarView::importAmpModel (const juce::File& source)
 {
     if (ampPanel == nullptr || ! source.existsAsFile()) return;
 
-    // Copy the chosen .nam into the writable models folder (created on demand).
-    auto dir = livedsp::getModelsDir();
-    dir.createDirectory();
-    auto dest = dir.getChildFile (source.getFileName());
+    // Copy the chosen .nam into the writable user models folder (created on demand).
+    auto dest = livedsp::getUserModelsDir().getChildFile (source.getFileName());
     if (source != dest)
         source.copyFileTo (dest);
 
@@ -164,11 +169,32 @@ void GuitarView::importAmpModel (const juce::File& source)
         }
 }
 
+void GuitarView::importCabIr (const juce::File& source)
+{
+    if (cabPanel == nullptr || ! source.existsAsFile()) return;
+
+    // Copy the chosen .wav into the writable user models folder (IRs live here too).
+    auto dest = livedsp::getUserModelsDir().getChildFile (source.getFileName());
+    if (source != dest)
+        source.copyFileTo (dest);
+
+    populateCabIrs();
+    for (int i = 0; i < irFiles.size(); ++i)
+        if (irFiles[i] == dest)
+        {
+            cabPanel->getCombo().setSelectedId (i + 1);   // notifies -> loadCabIr
+            break;
+        }
+}
+
 void GuitarView::populateCabIrs()
 {
     if (cabPanel == nullptr) return;
     auto& combo = cabPanel->getCombo();
 
+    // Idempotent: may be called again after importing an IR.
+    combo.clear (juce::dontSendNotification);
+    irFiles.clear();
     if (auto dir = livedsp::getModelsDir(); dir.isDirectory())
         irFiles = dir.findChildFiles (juce::File::findFiles, true, "*.wav");
 
@@ -214,9 +240,32 @@ void GuitarView::updateStatusLabel()
     statusLabel.setText ("Amp: " + namName + "    |    Cab IR: " + irName,
                          juce::dontSendNotification);
 
-    // The "download a rig" hint is only useful before the first model is loaded.
+    // The download hints are only useful before the first model / IR is loaded.
     if (ampPanel != nullptr)
         ampPanel->setDownloadLinkVisible (! processorRef.getNam().isLoaded());
+    if (cabPanel != nullptr)
+        cabPanel->setDownloadLinkVisible (! processorRef.getCab().isLoaded());
+}
+
+void GuitarView::syncSelectors()
+{
+    // Reflect the currently loaded model/IR in the combos (after a preset/state
+    // load, an import, etc.). 0 = nothing selected (e.g. model missing/unloaded).
+    auto sync = [] (ComboPanel* panel, const juce::Array<juce::File>& files,
+                    bool loaded, const juce::String& loadedName)
+    {
+        if (panel == nullptr) return;
+        auto& combo = panel->getCombo();
+        int target = 0;
+        if (loaded)
+            for (int i = 0; i < files.size(); ++i)
+                if (files[i].getFileNameWithoutExtension() == loadedName) { target = i + 1; break; }
+        if (combo.getSelectedId() != target)
+            combo.setSelectedId (target, juce::dontSendNotification);
+    };
+
+    sync (ampPanel, modelFiles, processorRef.getNam().isLoaded(), processorRef.getNam().getLoadedName());
+    sync (cabPanel, irFiles,    processorRef.getCab().isLoaded(), processorRef.getCab().getLoadedName());
 }
 
 void GuitarView::timerCallback()
@@ -235,6 +284,11 @@ void GuitarView::timerCallback()
     // Update the gate LED (lights up when the gate is ducking).
     if (gatePanel != nullptr)
         gatePanel->setLedLevel (1.0f - processorRef.getGate().getCurrentGain());
+
+    // Keep the UI in sync if the model/IR changed outside the combos (e.g. the
+    // standalone "Load state" menu, or restoring a preset).
+    syncSelectors();
+    updateStatusLabel();
 }
 
 void GuitarView::paint (juce::Graphics& g)

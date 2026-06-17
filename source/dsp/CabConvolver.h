@@ -35,6 +35,10 @@ public:
     bool isLoaded() const noexcept { return loaded; }
     juce::String getLoadedName() const { return loadedName; }
 
+    /** Unloads the current IR (the module stops processing until a new IR is
+        loaded). Used when restoring a state whose referenced IR is missing. */
+    void unload() noexcept { loaded = false; loadedName = {}; }
+
     /** Load a .wav IR. Call from the message thread (file I/O!).
         The Convolution processes it internally on a background thread and
         swaps the active IR in a thread-safe manner. */

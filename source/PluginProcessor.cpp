@@ -26,6 +26,24 @@ GuitarDspProcessor::GuitarDspProcessor()
     pDelayMix   = apvts.getRawParameterValue ("delayMix");
     pReverbOn   = apvts.getRawParameterValue ("reverbOn");
     pReverbAmt  = apvts.getRawParameterValue ("reverbAmount");
+
+    // Fejlesztői kényelem: az alapértelmezett models/ mappából betöltjük az
+    // első NAM modellt és IR-t MÁR a konstruktorban (az editor előtt), hogy a
+    // státusz helyesen jelenjen meg és azonnal szóljon. A loadModel itt a
+    // tag-alapértelmezett SR-rel Reset-el; a prepareToPlay később újra Reset-el
+    // a valódi mintavételi frekvenciával.
+   #if defined (GUITARDSP_DEFAULT_MODELS_DIR)
+    if (juce::File modelsDir { GUITARDSP_DEFAULT_MODELS_DIR }; modelsDir.isDirectory())
+    {
+        auto namFiles = modelsDir.findChildFiles (juce::File::findFiles, true, "*.nam");
+        if (! namFiles.isEmpty())
+            nam.loadModel (namFiles.getFirst());
+
+        auto irFiles = modelsDir.findChildFiles (juce::File::findFiles, true, "*.wav");
+        if (! irFiles.isEmpty())
+            cab.loadIR (irFiles.getFirst());   // betöltve, de a Cab alapból OFF
+    }
+   #endif
 }
 
 //==============================================================================
@@ -119,18 +137,6 @@ void GuitarDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     // Pitch + (Cab IR zero-latency = 0) latencia jelzése a hostnak.
     setLatencySamples (pitchShifter.getLatencySamples());
-
-    // Fejlesztői kényelem: ha még nincs betöltve modell, próbáljuk az
-    // alapértelmezett models/ mappából az elsőt (csak ha definiált).
-   #if defined (GUITARDSP_DEFAULT_MODELS_DIR)
-    if (! nam.isLoaded())
-    {
-        juce::File modelsDir { GUITARDSP_DEFAULT_MODELS_DIR };
-        auto namFiles = modelsDir.findChildFiles (juce::File::findFiles, true, "*.nam");
-        if (! namFiles.isEmpty())
-            nam.loadModel (namFiles.getFirst());
-    }
-   #endif
 }
 
 bool GuitarDspProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const

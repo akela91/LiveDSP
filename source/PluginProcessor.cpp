@@ -63,8 +63,8 @@ LiveDspProcessor::LiveDspProcessor()
     // státusz helyesen jelenjen meg és azonnal szóljon. A loadModel itt a
     // tag-alapértelmezett SR-rel Reset-el; a prepareToPlay később újra Reset-el
     // a valódi mintavételi frekvenciával.
-   #if defined (GUITARDSP_DEFAULT_MODELS_DIR)
-    if (juce::File modelsDir { GUITARDSP_DEFAULT_MODELS_DIR }; modelsDir.isDirectory())
+   #if defined (LIVEDSP_DEFAULT_MODELS_DIR)
+    if (juce::File modelsDir { LIVEDSP_DEFAULT_MODELS_DIR }; modelsDir.isDirectory())
     {
         auto namFiles = modelsDir.findChildFiles (juce::File::findFiles, true, "*.nam");
         if (! namFiles.isEmpty())

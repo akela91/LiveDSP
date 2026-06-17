@@ -108,8 +108,8 @@ void GuitarView::populateAmpModels()
     if (ampPanel == nullptr) return;
     auto& combo = ampPanel->getCombo();
 
-   #if defined (GUITARDSP_DEFAULT_MODELS_DIR)
-    juce::File dir { GUITARDSP_DEFAULT_MODELS_DIR };
+   #if defined (LIVEDSP_DEFAULT_MODELS_DIR)
+    juce::File dir { LIVEDSP_DEFAULT_MODELS_DIR };
     if (dir.isDirectory())
         modelFiles = dir.findChildFiles (juce::File::findFiles, true, "*.nam");
    #endif
@@ -139,8 +139,8 @@ void GuitarView::populateCabIrs()
     if (cabPanel == nullptr) return;
     auto& combo = cabPanel->getCombo();
 
-   #if defined (GUITARDSP_DEFAULT_MODELS_DIR)
-    juce::File dir { GUITARDSP_DEFAULT_MODELS_DIR };
+   #if defined (LIVEDSP_DEFAULT_MODELS_DIR)
+    juce::File dir { LIVEDSP_DEFAULT_MODELS_DIR };
     if (dir.isDirectory())
         irFiles = dir.findChildFiles (juce::File::findFiles, true, "*.wav");
    #endif
@@ -167,8 +167,8 @@ void GuitarView::populateCabIrs()
 
 void GuitarView::populatePresetSelector()
 {
-   #if defined (GUITARDSP_FAVS_DIR)
-    juce::File dir { GUITARDSP_FAVS_DIR };
+   #if defined (LIVEDSP_FAVS_DIR)
+    juce::File dir { LIVEDSP_FAVS_DIR };
     if (dir.isDirectory())
         presetFiles = dir.findChildFiles (juce::File::findFiles, false, "*");
    #endif

@@ -67,23 +67,22 @@ void LiveDspEditor::showMode (int mode)
     setResizable (resiz, resiz);
     if (resiz)
         setResizeLimits (900, 440, 1500, 1000);
-
-    // EGYETLEN méretezés, hogy ne villanjon: ha van top-level ablak, csak azt
-    // méretezzük (a szerkesztő mint tartalom követi) — nem hívunk külön
-    // editor.setSize-t is, mert a kettő két layout-ot/átméretezést okozna.
-    if (auto* top = getTopLevelComponent(); top != nullptr && top != this)
-    {
-        const int w = view->defaultWidth()  + chromeW;
-        const int h = view->defaultHeight() + chromeH;
-        if (top->getWidth() != w || top->getHeight() != h)
-            top->setSize (w, h);   // ez átméretezi a tartalmat -> a nézet kitölti
-        else
-            resized();             // a méret már jó, csak az új nézetet rendezzük
-    }
     else
-    {
+        // FONTOS: a nem-átméretezhető nézetnél FIX korlát, különben egy korábbi
+        // gitár-mód (min 900x440) korlátja clamp-elné a kisebb cél-méretet, az
+        // ablak nem méreteződne át, és a nézet ÜRESEN maradna (lásd bug).
+        setResizeLimits (view->defaultWidth(), view->defaultHeight(),
+                         view->defaultWidth(), view->defaultHeight());
+
+    if (auto* top = getTopLevelComponent(); top != nullptr && top != this)
+        top->setSize (view->defaultWidth() + chromeW, view->defaultHeight() + chromeH);
+    else
         setSize (view->defaultWidth(), view->defaultHeight());
-    }
+
+    // MINDIG elrendezzük az aktuális nézetet — akkor is, ha az ablakméret nem
+    // változott (különben a frissen létrehozott nézet panelei 0 mérettel,
+    // azaz üresen jelennének meg).
+    resized();
 }
 
 void LiveDspEditor::paint (juce::Graphics& g)

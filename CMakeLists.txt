@@ -112,21 +112,21 @@ endif()
 # ASIO SDK (Steinberg) — licenc miatt NEM része a repónak
 # ---------------------------------------------------------------------------
 # Add meg a kicsomagolt ASIO SDK útvonalát:
-#   cmake -B build -DGUITARDSP_ASIO_SDK_DIR="C:/SDKs/asiosdk"
+#   cmake -B build -DLIVEDSP_ASIO_SDK_DIR="C:/SDKs/asiosdk"
 # Ha nincs megadva, alapból a repo ext/asiosdk mappáját nézi.
-set(GUITARDSP_ASIO_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext/asiosdk"
+set(LIVEDSP_ASIO_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext/asiosdk"
     CACHE PATH "Steinberg ASIO SDK gyökérkönyvtára (a 'common' almappát tartalmazza)")
 
-set(GUITARDSP_HAS_ASIO FALSE)
-if (EXISTS "${GUITARDSP_ASIO_SDK_DIR}/common/iasiodrv.h")
-    set(GUITARDSP_HAS_ASIO TRUE)
-    message(STATUS "LiveDSP: ASIO SDK megtalálva itt: ${GUITARDSP_ASIO_SDK_DIR}")
+set(LIVEDSP_HAS_ASIO FALSE)
+if (EXISTS "${LIVEDSP_ASIO_SDK_DIR}/common/iasiodrv.h")
+    set(LIVEDSP_HAS_ASIO TRUE)
+    message(STATUS "LiveDSP: ASIO SDK megtalálva itt: ${LIVEDSP_ASIO_SDK_DIR}")
 else()
     message(WARNING
-        "LiveDSP: ASIO SDK NEM található (${GUITARDSP_ASIO_SDK_DIR}).\n"
+        "LiveDSP: ASIO SDK NEM található (${LIVEDSP_ASIO_SDK_DIR}).\n"
         "  A build folytatódik ASIO NÉLKÜL (WASAPI/DirectSound fallback).\n"
         "  Az alacsony latenciás ASIO-hoz töltsd le a Steinberg ASIO SDK-t és add meg:\n"
-        "  cmake -B build -DGUITARDSP_ASIO_SDK_DIR=\"C:/utvonal/asiosdk\"")
+        "  cmake -B build -DLIVEDSP_ASIO_SDK_DIR=\"C:/utvonal/asiosdk\"")
 endif()
 
 # ---------------------------------------------------------------------------
@@ -164,14 +164,14 @@ target_compile_definitions(LiveDSP PUBLIC
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_STRICT_REFCOUNTEDPOINTER=1
     # A standalone az alapértelmezett modellmappát itt keresi (fejlesztéshez):
-    GUITARDSP_DEFAULT_MODELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/models"
+    LIVEDSP_DEFAULT_MODELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/models"
     # Preset ("favs") mappa az elmentett state-eknek:
-    GUITARDSP_FAVS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/favs")
+    LIVEDSP_FAVS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/favs")
 
 # ASIO bekapcsolása, ha elérhető az SDK
-if (GUITARDSP_HAS_ASIO)
+if (LIVEDSP_HAS_ASIO)
     target_compile_definitions(LiveDSP PUBLIC JUCE_ASIO=1)
-    target_include_directories(LiveDSP PRIVATE "${GUITARDSP_ASIO_SDK_DIR}/common")
+    target_include_directories(LiveDSP PRIVATE "${LIVEDSP_ASIO_SDK_DIR}/common")
 endif()
 
 target_link_libraries(LiveDSP PRIVATE

@@ -69,9 +69,13 @@ public:
 
     //==============================================================================
     // Élő paraméter-beállítók (a hangszálon futnak, a process előtt).
-    void setInputGainDb (float db) noexcept { chain.get<gainIdx>().setGainDecibels (db); }
+    void setInputGainDb (float db) noexcept
+    {
+        chain.get<gainIdx>().setGainDecibels (db);
+        gainLin = juce::Decibels::decibelsToGain (db);
+    }
 
-    void setGateThreshold (float db) noexcept { chain.get<gateIdx>().setThreshold (db); }
+    void setGateThreshold (float db) noexcept { chain.get<gateIdx>().setThreshold (db); gateThrDb = db; }
 
     void setWarmth (float drive) noexcept
     {
@@ -79,8 +83,8 @@ public:
         applyWarmth();
     }
 
-    void setCompThreshold (float db) noexcept { chain.get<compIdx>().setThreshold (db); }
-    void setCompRatio     (float r)  noexcept { chain.get<compIdx>().setRatio (r); }
+    void setCompThreshold (float db) noexcept { chain.get<compIdx>().setThreshold (db); compThrDb = db; }
+    void setCompRatio     (float r)  noexcept { chain.get<compIdx>().setRatio (r); compRatio = r; }
 
     void setAirDb (float db) noexcept { if (db != airDb) { airDb = db; updateAir(); } }
 
@@ -95,7 +99,7 @@ public:
     }
 
     // Bypass-kapcsolók (a ProcessorChain elemenként megkerülhető).
-    void setGateEnabled   (bool b) noexcept { chain.setBypassed<gateIdx>   (! b); }
+    void setGateEnabled   (bool b) noexcept { chain.setBypassed<gateIdx>   (! b); gateOn = b; }
     void setWarmthEnabled (bool b) noexcept
     {
         warmthOn = b;
@@ -103,14 +107,22 @@ public:
         chain.setBypassed<shaperIdx>     (! b);
         chain.setBypassed<warmthPostIdx> (! b);
     }
-    void setCompEnabled   (bool b) noexcept { chain.setBypassed<compIdx>  (! b); }
+    void setCompEnabled   (bool b) noexcept { chain.setBypassed<compIdx>  (! b); compOn = b; }
     void setAirEnabled    (bool b) noexcept { chain.setBypassed<shelfIdx> (! b); }
     void setDelayEnabled  (bool b) noexcept { chain.setBypassed<delayIdx> (! b); }
     void setReverbEnabled (bool b) noexcept { chain.setBypassed<revIdx>   (! b); }
 
     //==============================================================================
+    // Kijelző-célú mérők a UI LED-ekhez (a hangot NEM érintik): a kapu aktuális
+    // (becsült) gain-je 0..1 (0 = némít), és a kompresszor becsült gain-csökkentése
+    // 0..1 (0 = nincs vágás). Üzenetszálról olvasandó.
+    float getGateGain()      const noexcept { return gateDisp.load(); }
+    float getCompReduction() const noexcept { return compDisp.load(); }
+
+    //==============================================================================
     void process (juce::dsp::AudioBlock<float> block) noexcept
     {
+        updateMeters (block);   // a feldolgozás ELŐTT (a bemeneti szintből)
         juce::dsp::ProcessContextReplacing<float> ctx (block);
         chain.process (ctx);
     }
@@ -168,6 +180,37 @@ private:
         }
     };
 
+    // Kijelző-mérő frissítése a bemeneti szintből (a feldolgozás előtt). Csak a
+    // LED-ekhez ad becslést — a tényleges gate/comp a chainben dolgozik.
+    void updateMeters (const juce::dsp::AudioBlock<float>& block) noexcept
+    {
+        const int n = (int) block.getNumSamples();
+        if (n <= 0 || block.getNumChannels() == 0)
+            return;
+
+        const auto* d = block.getChannelPointer (0);
+        float peak = 0.0f;
+        for (int i = 0; i < n; ++i)
+            peak = juce::jmax (peak, std::abs (d[i]));
+
+        const float lvl = peak * gainLin;                 // a gate-et érő szint becslése
+        if (lvl > dispEnv) dispEnv = lvl;                 // gyors fel
+        else               dispEnv = dispEnv * 0.9f + lvl * 0.1f;  // lassú le
+
+        const float lvlDb = juce::Decibels::gainToDecibels (juce::jmax (1.0e-6f, dispEnv));
+
+        // Kapu: nyit, ha a szint a küszöb felett van (simítva).
+        const float gateTarget = (lvlDb > gateThrDb) ? 1.0f : 0.0f;
+        gateSm = gateSm * 0.8f + gateTarget * 0.2f;
+        gateDisp.store (gateOn ? gateSm : 1.0f);
+
+        // Kompresszor becsült gain-csökkentése (dB) -> 0..1 a LED-hez.
+        float redDb = 0.0f;
+        if (compOn && lvlDb > compThrDb && compRatio > 1.0f)
+            redDb = (lvlDb - compThrDb) * (1.0f - 1.0f / compRatio);
+        compDisp.store (juce::jlimit (0.0f, 1.0f, redDb / 12.0f));
+    }
+
     void updateLowCut()
     {
         *chain.get<hpfIdx>().state =
@@ -222,4 +265,16 @@ private:
     float  reverbMix   { 0.2f };
     float  warmthDrive { 1.2f };
     bool   warmthOn    { true };
+
+    // Kijelző-mérő állapot (csak a hangszálon írt, a UI atomikusan olvassa).
+    float gainLin   { 2.0f };
+    float gateThrDb { -55.0f };
+    float compThrDb { -18.0f };
+    float compRatio { 3.0f };
+    bool  gateOn    { true };
+    bool  compOn    { true };
+    float dispEnv   { 0.0f };
+    float gateSm    { 1.0f };
+    std::atomic<float> gateDisp { 1.0f };
+    std::atomic<float> compDisp { 0.0f };
 };

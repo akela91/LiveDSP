@@ -77,7 +77,7 @@ void GuitarView::buildPanels()
                               [this] (int ch) { processorRef.setGuitarInputCh (ch); }));
 
     gatePanel = new ModulePanel (processorRef.apvts, "GATE", "gateOn", { { "gateThreshold", "THRESH" } });
-    gatePanel->enableGateLed (true);
+    gatePanel->enableLed (true);
     row1.add (gatePanel);
 
     row1.add (new PitchPanel (processorRef.apvts));
@@ -206,7 +206,7 @@ void GuitarView::timerCallback()
 
     // Kapu-LED frissítése (kigyullad, amikor a kapu némít).
     if (gatePanel != nullptr)
-        gatePanel->setGateGain (processorRef.getGate().getCurrentGain());
+        gatePanel->setLedLevel (1.0f - processorRef.getGate().getCurrentGain());
 }
 
 void GuitarView::paint (juce::Graphics& g)
@@ -243,13 +243,13 @@ void GuitarView::resized()
 {
     auto area = getLocalBounds().reduced (12);
 
-    // Felső sáv: cím balra; preset + MENÜ + TUNER jobbra (a modellválasztó már
+    // Felső sáv: MENÜ + cím balra; preset + TUNER jobbra (a modellválasztó már
     // az AMP panelbe került, így a sáv kevésbé zsúfolt).
     auto top = area.removeFromTop (32);
+    menuButton.setBounds (top.removeFromLeft (72).reduced (0, 2));
+    top.removeFromLeft (10);
     titleLabel.setBounds (top.removeFromLeft (120));
     tunerButton.setBounds (top.removeFromRight (84).reduced (0, 2));
-    top.removeFromRight (8);
-    menuButton.setBounds (top.removeFromRight (72).reduced (0, 2));
     top.removeFromRight (8);
     presetSelector.setBounds (top.removeFromRight (170).reduced (0, 2));
 

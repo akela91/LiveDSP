@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <cmath>
 #include "GuitarLookAndFeel.h"
 #include "AppView.h"
 
@@ -98,35 +99,87 @@ private:
         void drawIcon (juce::Graphics& g, juce::Rectangle<float> box, juce::Colour accent)
         {
             const auto dim = juce::Colour (GuitarLookAndFeel::cTextDim);
-            const auto c = box.getCentre();
+            const auto bg  = juce::Colour (GuitarLookAndFeel::cBackground);
+            const auto c   = box.getCentre();
+
+            // Átlós elrendezés (mint a fotókon): a tartalmat a középpont körül
+            // megdöntjük, majd "függőlegesen" rajzolunk.
+            juce::Graphics::ScopedSaveState save (g);
 
             if (kind == Kind::guitar)
             {
-                // amp-fej sziluett: keret + grille-vonalak.
-                g.setColour (dim);
-                g.drawRoundedRectangle (box, 8.0f, 2.0f);
-                auto grille = box.reduced (12.0f).withTrimmedTop (10.0f);
-                g.setColour (accent.withAlpha (0.85f));
-                for (float gx = grille.getX() + 3.0f; gx < grille.getRight(); gx += 7.0f)
-                    g.drawLine (gx, grille.getY(), gx, grille.getBottom(), 1.4f);
+                g.addTransform (juce::AffineTransform::rotation (-0.42f, c.x, c.y));
+
+                const float w  = box.getWidth();
+                const float h  = box.getHeight();
+                const float bw = w * 0.50f;                  // test szélesség
+                const float bh = h * 0.40f;                  // test magasság
+                const float bx = c.x - bw * 0.5f;
+                const float by = box.getBottom() - bh - h * 0.04f;
+
+                // Test: két "szarvval" rendelkező lekerekített forma (superstrat).
+                juce::Path body;
+                body.addRoundedRectangle (bx, by, bw, bh, bw * 0.42f, bh * 0.5f);
+                body.addEllipse (bx - bw * 0.06f, by - bh * 0.18f, bw * 0.42f, bh * 0.5f);   // felső szarv
+                body.addEllipse (bx + bw * 0.64f, by - bh * 0.18f, bw * 0.42f, bh * 0.5f);
                 g.setColour (accent);
-                g.fillEllipse (box.getX() + 12.0f, box.getY() + 6.0f, 6.0f, 6.0f);
-                g.fillEllipse (box.getX() + 26.0f, box.getY() + 6.0f, 6.0f, 6.0f);
+                g.fillPath (body);
+
+                // Pickupok (sötét sávok).
+                g.setColour (bg);
+                g.fillRoundedRectangle (c.x - bw * 0.22f, by + bh * 0.26f, bw * 0.44f, bh * 0.13f, 1.5f);
+                g.fillRoundedRectangle (c.x - bw * 0.22f, by + bh * 0.50f, bw * 0.44f, bh * 0.13f, 1.5f);
+
+                // Nyak + fogólap a test tetejétől felfelé.
+                const float neckW = w * 0.12f;
+                const float neckTop = box.getY() + h * 0.06f;
+                g.setColour (dim);
+                g.fillRoundedRectangle (c.x - neckW * 0.5f, neckTop, neckW, by - neckTop + bh * 0.2f, 2.0f);
+
+                // Fej + 3 hangolókulcs.
+                g.setColour (accent);
+                g.fillRoundedRectangle (c.x - neckW * 0.8f, box.getY(), neckW * 1.6f, h * 0.12f, 2.0f);
+                g.setColour (bg);
+                for (int i = 0; i < 3; ++i)
+                    g.fillEllipse (c.x - neckW * 0.5f + i * neckW * 0.5f, box.getY() + h * 0.03f, 3.0f, 3.0f);
             }
             else
             {
-                // mikrofon: kapszula + nyél + talp.
-                const float w = box.getWidth() * 0.42f;
-                const float h = box.getHeight() * 0.62f;
-                juce::Rectangle<float> capsule (c.x - w * 0.5f, box.getY(), w, h);
+                g.addTransform (juce::AffineTransform::rotation (0.42f, c.x, c.y));
+
+                const float w   = box.getWidth();
+                const float h   = box.getHeight();
+                const float ball = w * 0.52f;                // gömbrács átmérő
+                const float bx  = c.x - ball * 0.5f;
+                const float by  = box.getY() + h * 0.02f;
+
+                // Gömbrács (SM58 fej).
                 g.setColour (accent);
-                g.fillRoundedRectangle (capsule, w * 0.5f);
-                g.setColour (juce::Colour (GuitarLookAndFeel::cBackground));
-                for (float gy = capsule.getY() + 8.0f; gy < capsule.getBottom() - 6.0f; gy += 6.0f)
-                    g.drawLine (capsule.getX() + 4.0f, gy, capsule.getRight() - 4.0f, gy, 1.4f);
+                g.fillEllipse (bx, by, ball, ball);
+                // Rács: ívelt vonalak.
+                g.setColour (bg.withAlpha (0.9f));
+                for (float t = 0.28f; t < 0.95f; t += 0.18f)
+                {
+                    const float yy = by + ball * t;
+                    const float dx = ball * 0.5f * std::sqrt (juce::jmax (0.0f, 1.0f - (2.0f * t - 1.0f) * (2.0f * t - 1.0f)));
+                    g.drawLine (c.x - dx, yy, c.x + dx, yy, 1.3f);
+                }
+
+                // Gyűrű a fej és a nyél között.
+                const float bodyW = ball * 0.66f;
                 g.setColour (dim);
-                g.drawLine (c.x, capsule.getBottom(), c.x, box.getBottom() - 6.0f, 2.4f);
-                g.drawLine (c.x - 12.0f, box.getBottom() - 6.0f, c.x + 12.0f, box.getBottom() - 6.0f, 2.4f);
+                g.fillRoundedRectangle (c.x - bodyW * 0.5f, by + ball * 0.86f, bodyW, h * 0.06f, 2.0f);
+
+                // Nyél (kissé szűkülő test).
+                g.setColour (accent.darker (0.2f));
+                juce::Path bodyP;
+                const float top = by + ball * 0.92f;
+                bodyP.startNewSubPath (c.x - bodyW * 0.5f, top);
+                bodyP.lineTo (c.x + bodyW * 0.5f, top);
+                bodyP.lineTo (c.x + bodyW * 0.40f, box.getBottom());
+                bodyP.lineTo (c.x - bodyW * 0.40f, box.getBottom());
+                bodyP.closeSubPath();
+                g.fillPath (bodyP);
             }
         }
     };

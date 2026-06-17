@@ -50,10 +50,16 @@ public:
                                   processorRef.getVocalInputCh(),
                                   [this] (int ch) { processorRef.setVocalInputCh (ch); }));
         row1.add (new InfoPanel  ("LOW CUT", "90 Hz"));
-        row1.add (new ModulePanel (s, "GATE", "vocGateOn", { { "vocGateThresh", "GATE" } }));
+        gatePanel = new ModulePanel (s, "GATE", "vocGateOn", { { "vocGateThresh", "GATE" } });
+        gatePanel->enableLed (true);
+        row1.add (gatePanel);
+
         row1.add (new ModulePanel (s, "WARMTH", "vocWarmthOn", { { "vocWarmth", "WARMTH" } }));
-        row1.add (new ModulePanel (s, "COMP", "vocCompOn",
-                                   { { "vocCompThresh", "THRESH" }, { "vocCompRatio", "RATIO" } }));
+
+        compPanel = new ModulePanel (s, "COMP", "vocCompOn",
+                                     { { "vocCompThresh", "THRESH" }, { "vocCompRatio", "RATIO" } });
+        compPanel->enableLed (true);
+        row1.add (compPanel);
 
         // 2. sor — air, delay, reverb, limiter.
         row2.add (new ModulePanel (s, "AIR", "vocAirOn", { { "vocAir", "AIR" } }));
@@ -136,6 +142,12 @@ private:
             latencyLabel.setText ("Latency ~ " + juce::String (samples / sr * 1000.0, 1) + " ms",
                                   juce::dontSendNotification);
         }
+
+        // LED-ek: a kapu kigyullad némításkor, a kompresszor vágáskor.
+        if (gatePanel != nullptr)
+            gatePanel->setLedLevel (1.0f - processorRef.getVocalGateGain());
+        if (compPanel != nullptr)
+            compPanel->setLedLevel (processorRef.getVocalCompReduction());
     }
 
     GuitarDspProcessor& processorRef;
@@ -146,6 +158,8 @@ private:
     juce::Label      infoLabel;
 
     juce::OwnedArray<PanelBase> row1, row2;
+    ModulePanel* gatePanel { nullptr };
+    ModulePanel* compPanel { nullptr };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VocalView)
 };

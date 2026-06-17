@@ -139,12 +139,13 @@ public:
 
     void setIcon (Icon i) { icon = i; repaint(); }
 
-    // Kapu-LED: a fejlécben egy kis jelző, ami KIGYULLAD, amikor a kapu zár
-    // (némít). A 'gateGain' 0 = teljesen zárva, 1 = nyitva.
-    void enableGateLed (bool b) { hasLed = b; }
-    void setGateGain (float g)
+    // Aktivitás-LED: a fejlécben egy kis jelző, ami KIGYULLAD, amikor a modul
+    // épp dolgozik (kapu némít / kompresszor vág). A 'lit' 0 = ki, 1 = teljes.
+    void enableLed (bool b) { hasLed = b; }
+    void setLedLevel (float lit)
     {
-        if (std::abs (g - ledGain) > 0.02f) { ledGain = g; repaint(); }
+        lit = juce::jlimit (0.0f, 1.0f, lit);
+        if (std::abs (lit - ledLit) > 0.02f) { ledLit = lit; repaint(); }
     }
 
     int getPreferredWidth() const override
@@ -174,8 +175,8 @@ public:
 
         if (hasLed)
         {
-            // A LED a power gomb mellett balra. Zárásnál (ledGain kicsi) kigyullad.
-            const float closed = juce::jlimit (0.0f, 1.0f, 1.0f - ledGain);
+            // A LED a power gomb mellett balra. Aktivitásnál (ledLit nagy) kigyullad.
+            const float closed = ledLit;
             auto hb = header.toNearestInt();
             if (power != nullptr) hb.removeFromRight (headerH);
             auto dot = hb.removeFromRight (16).withSizeKeepingCentre (9, 9).toFloat();
@@ -259,7 +260,7 @@ private:
     juce::String title;
     Icon icon { Icon::none };
     bool  hasLed  { false };
-    float ledGain { 1.0f };
+    float ledLit  { 0.0f };
     std::unique_ptr<PowerButton> power;
     juce::OwnedArray<KnobControl> knobs;
 };

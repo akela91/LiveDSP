@@ -62,6 +62,10 @@ public:
     CabConvolver& getCab()       { return cab; }
     NoiseGate&    getGate()      { return gate; }
 
+    // Vokál kijelző-mérők a UI LED-ekhez (0..1).
+    float getVocalGateGain()      const noexcept { return vocal.getGateGain(); }
+    float getVocalCompReduction() const noexcept { return vocal.getCompReduction(); }
+
     int getCurrentBlockSize() const noexcept { return currentBlockSize; }
 
     //==============================================================================

@@ -29,8 +29,13 @@ public:
         sampleRate    = spec.sampleRate;
         maxBlockSize  = (int) spec.maximumBlockSize;
 
-        // Alacsony latenciás preset 1 csatornára.
-        stretch.presetDefault (1, (float) sampleRate);
+        // ALACSONY LATENCIÁS konfiguráció: a presetDefault ~120 ms-os STFT-blokkot
+        // használ (érzékelhetően ~száz ms latencia). Egy kisebb blokk (~30 ms)
+        // drámaian csökkenti a latenciát, cserébe kicsit gyengébb a mély hangok
+        // felbontása — drop-hangoláshoz jó kompromisszum. blockMs állítható.
+        const int block    = juce::jmax (256, juce::roundToInt (sampleRate * blockMs * 0.001));
+        const int interval = juce::jmax (1, block / 4);
+        stretch.configure (1, block, interval);
 
         // Belső I/O pufferek (pointer-tömb a Stretch API-hoz).
         scratchIn.assign  ((size_t) maxBlockSize, 0.0f);
@@ -39,6 +44,9 @@ public:
         setSemitones (currentSemitones);
         reset();
     }
+
+    // STFT-blokk hossza ms-ben (kisebb = kisebb latencia). prepare() előtt hívd.
+    void setBlockMs (double ms) noexcept { blockMs = juce::jlimit (10.0, 120.0, ms); }
 
     void reset() noexcept
     {
@@ -85,6 +93,7 @@ private:
     int    maxBlockSize { 512 };
     bool   enabled      { false };
     float  currentSemitones { 0.0f };
+    double blockMs      { 30.0 };   // alacsony latencia
 
     std::vector<float> scratchIn;
     std::vector<float> scratchOut;

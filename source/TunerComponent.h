@@ -1,0 +1,128 @@
+#pragma once
+
+#include <JuceHeader.h>
+#include "PluginProcessor.h"
+#include "dsp/PitchDetector.h"
+
+/**
+    Vizuális gitárhangoló. A processzor nyers bemenetét pollozza (Timer), és
+    autokorrelációval detektálja a hangmagasságot. Kijelzi a legközelebbi hangot
+    és a cent-eltérést egy mutatóval (zöld = hangban).
+
+    A detektálás az üzenetszálon fut (a Timer callbackben), így nem terheli a
+    hangszálat.
+*/
+class TunerComponent : public juce::Component,
+                       private juce::Timer
+{
+public:
+    explicit TunerComponent (GuitarDspProcessor& p) : processorRef (p)
+    {
+        snapshot.resize ((size_t) snapshotSize, 0.0f);
+        detector.setRange (40.0f, 600.0f);
+        startTimerHz (20);
+    }
+
+    ~TunerComponent() override { stopTimer(); }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto area = getLocalBounds().reduced (10);
+
+        g.setColour (juce::Colour (0xff1a1a1a));
+        g.fillRoundedRectangle (area.toFloat(), 6.0f);
+
+        const bool inTune = hasPitch && std::abs (cents) < 5.0f;
+
+        // Hang neve
+        auto top = area.removeFromTop (area.getHeight() / 2);
+        g.setColour (hasPitch ? (inTune ? juce::Colours::limegreen : juce::Colours::white)
+                              : juce::Colours::grey);
+        g.setFont (juce::Font (juce::FontOptions (40.0f, juce::Font::bold)));
+        g.drawText (hasPitch ? noteName : juce::String ("--"),
+                    top, juce::Justification::centred);
+
+        // Frekvencia + cent szöveg
+        g.setColour (juce::Colours::lightgrey);
+        g.setFont (juce::Font (juce::FontOptions (12.0f)));
+        if (hasPitch)
+            g.drawText (juce::String (frequency, 1) + " Hz   "
+                          + (cents >= 0 ? "+" : "") + juce::String (cents, 0) + " cent",
+                        top.removeFromBottom (16), juce::Justification::centred);
+
+        // Cent-mutató sáv
+        auto bar = area.reduced (4);
+        const float midX = bar.getCentreX();
+
+        g.setColour (juce::Colour (0xff333333));
+        g.fillRect (bar.withSizeKeepingCentre (bar.getWidth(), 6));
+
+        // Középvonal (hangban)
+        g.setColour (juce::Colours::limegreen.withAlpha (0.6f));
+        g.fillRect ((int) midX - 1, bar.getY(), 2, bar.getHeight());
+
+        // Skála ±50 cent
+        if (hasPitch)
+        {
+            const float norm = juce::jlimit (-1.0f, 1.0f, cents / 50.0f);
+            const float needleX = midX + norm * (bar.getWidth() * 0.5f);
+            g.setColour (inTune ? juce::Colours::limegreen : juce::Colours::orange);
+            g.fillRoundedRectangle (needleX - 4.0f, (float) bar.getY(), 8.0f,
+                                    (float) bar.getHeight(), 3.0f);
+        }
+    }
+
+private:
+    void timerCallback() override
+    {
+        processorRef.copyRecentInput (snapshot.data(), snapshotSize);
+        detector.setSampleRate (processorRef.getSampleRate());
+
+        const auto r = detector.detect (snapshot.data(), snapshotSize);
+
+        if (r.frequency > 0.0f && r.clarity > 0.0f)
+        {
+            // Sima frekvencia-követés
+            frequency = smoothedFreq <= 0.0f ? r.frequency
+                                             : 0.8f * smoothedFreq + 0.2f * r.frequency;
+            smoothedFreq = frequency;
+            hasPitch = true;
+
+            const float midi = 69.0f + 12.0f * std::log2 (frequency / 440.0f);
+            const int   nearest = (int) std::lround (midi);
+            cents = (midi - (float) nearest) * 100.0f;
+            noteName = midiNoteName (nearest);
+        }
+        else
+        {
+            hasPitch = false;
+            smoothedFreq = 0.0f;
+        }
+
+        repaint();
+    }
+
+    static juce::String midiNoteName (int midiNote)
+    {
+        static const char* names[] = { "C", "C#", "D", "D#", "E", "F",
+                                       "F#", "G", "G#", "A", "A#", "B" };
+        int idx = midiNote % 12;
+        if (idx < 0) idx += 12;
+        const int octave = midiNote / 12 - 1;
+        return juce::String (names[idx]) + juce::String (octave);
+    }
+
+    GuitarDspProcessor& processorRef;
+    PitchDetector detector;
+
+    static constexpr int snapshotSize = 4096;
+    std::vector<float> snapshot;
+
+    bool   hasPitch     { false };
+    float  frequency    { 0.0f };
+    float  smoothedFreq { 0.0f };
+    float  cents        { 0.0f };
+    juce::String noteName { "--" };
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TunerComponent)
+};

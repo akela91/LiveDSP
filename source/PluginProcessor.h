@@ -7,6 +7,7 @@
 #include "dsp/PitchShifter.h"
 #include "dsp/NamProcessor.h"
 #include "dsp/CabConvolver.h"
+#include "dsp/Equalizer.h"
 
 /**
     guitarDSP — standalone gitár amp-szimulátor processzor.
@@ -53,6 +54,11 @@ public:
     NamProcessor& getNam()       { return nam; }
     CabConvolver& getCab()       { return cab; }
 
+    // A hangolóhoz: a legfrissebb 'numToCopy' nyers bemeneti mintát másolja
+    // időrendben a dest-be (üzenetszálról hívandó). A hangszállal való enyhe
+    // versengés a hangolónál elfogadható.
+    void copyRecentInput (float* dest, int numToCopy) const noexcept;
+
     juce::AudioProcessorValueTreeState apvts;
 
 private:
@@ -66,6 +72,7 @@ private:
     PitchShifter  pitchShifter;
     NamProcessor  nam;
     CabConvolver  cab;
+    Equalizer     eq;
 
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLine { 96000 };
     juce::dsp::Reverb reverb;
@@ -81,6 +88,11 @@ private:
     juce::AudioBuffer<float> monoBuffer;
 
     double currentSampleRate { 48000.0 };
+
+    // Tuner: körkörös puffer a nyers (pre-gain) monó bemenetről.
+    static constexpr int tunerRingSize = 16384;
+    std::vector<float> tunerRing;
+    std::atomic<int>   tunerWrite { 0 };
 
     // Gyorsított paraméter-pointerek
     std::atomic<float>* pInputGain   { nullptr };
@@ -101,6 +113,8 @@ private:
     std::atomic<float>* pDelayMix    { nullptr };
     std::atomic<float>* pReverbOn    { nullptr };
     std::atomic<float>* pReverbAmt   { nullptr };
+    std::atomic<float>* pEqOn        { nullptr };
+    std::array<std::atomic<float>*, Equalizer::numBands> pEqBands { };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarDspProcessor)
 };

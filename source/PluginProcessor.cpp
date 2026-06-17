@@ -28,6 +28,9 @@ GuitarDspProcessor::GuitarDspProcessor()
     pDelayMix   = apvts.getRawParameterValue ("delayMix");
     pReverbOn   = apvts.getRawParameterValue ("reverbOn");
     pReverbAmt  = apvts.getRawParameterValue ("reverbAmount");
+    pEqOn       = apvts.getRawParameterValue ("eqOn");
+    for (int i = 0; i < Equalizer::numBands; ++i)
+        pEqBands[(size_t) i] = apvts.getRawParameterValue ("eqBand" + juce::String (i));
 
     // Fejlesztői kényelem: az alapértelmezett models/ mappából betöltjük az
     // első NAM modellt és IR-t MÁR a konstruktorban (az editor előtt), hogy a
@@ -87,6 +90,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarDspProcessor::createPa
     // Amp (NAM)
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "namOn", 1 }, "Amp On", true));
 
+    // EQ (alacsony latenciás, 9-sávos grafikus IIR) — Cab után
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { "eqOn", 1 }, "EQ On", false));
+    for (int i = 0; i < Equalizer::numBands; ++i)
+    {
+        const float f = Equalizer::frequencies[(size_t) i];
+        const juce::String label = f >= 1000.0f
+            ? "EQ " + juce::String ((int) (f / 1000.0f)) + " kHz"
+            : "EQ " + juce::String ((int) f) + " Hz";
+        layout.add (std::make_unique<AudioParameterFloat> (
+            ParameterID { "eqBand" + juce::String (i), 1 }, label, db (-15.0f, 15.0f), 0.0f));
+    }
+
     // Cab IR (alapból OFF a Full Rig modellek miatt)
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "cabOn", 1 }, "Cab On", false));
 
@@ -121,6 +136,7 @@ void GuitarDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     nam.prepare (monoSpec);
 
     cab.prepare (stereoSpec);
+    eq.prepare (stereoSpec);
 
     // A delay max hossza a tényleges SR-hez igazítva (max paraméter 1500 ms + tartalék).
     delayLine.setMaximumDelayInSamples ((int) (sampleRate * 2.0) + samplesPerBlock);
@@ -136,6 +152,9 @@ void GuitarDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     delayFeedbackSmoothed.reset (sampleRate, 0.02);
 
     monoBuffer.setSize (1, samplesPerBlock, false, false, true);
+
+    tunerRing.assign ((size_t) tunerRingSize, 0.0f);
+    tunerWrite.store (0, std::memory_order_relaxed);
 
     // Pitch + (Cab IR zero-latency = 0) latencia jelzése a hostnak.
     setLatencySamples (pitchShifter.getLatencySamples());
@@ -173,6 +192,12 @@ void GuitarDspProcessor::updateParametersFromApvts() noexcept
     nam.setEnabled (pNamOn->load() > 0.5f);
     cab.setEnabled (pCabOn->load() > 0.5f);
 
+    eq.setEnabled (pEqOn->load() > 0.5f);
+    float eqGains[Equalizer::numBands];
+    for (int i = 0; i < Equalizer::numBands; ++i)
+        eqGains[i] = pEqBands[(size_t) i]->load();
+    eq.setGains (eqGains);
+
     delayMixSmoothed.setTargetValue      (pDelayOn->load() > 0.5f ? pDelayMix->load() : 0.0f);
     delayFeedbackSmoothed.setTargetValue (pDelayFb->load());
 
@@ -203,6 +228,18 @@ void GuitarDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     for (int ch = 0; ch < numIn; ++ch)
         monoBuffer.addFrom (0, 0, buffer, ch, 0, numSamples);
 
+    // Nyers (pre-gain) bemenet rögzítése a hangolóhoz.
+    if (! tunerRing.empty())
+    {
+        int w = tunerWrite.load (std::memory_order_relaxed);
+        for (int i = 0; i < numSamples; ++i)
+        {
+            tunerRing[(size_t) w] = mono[i];
+            if (++w >= tunerRingSize) w = 0;
+        }
+        tunerWrite.store (w, std::memory_order_relaxed);
+    }
+
     // 1) Input Gain
     inputGain.applyGain (mono, numSamples);
 
@@ -218,6 +255,11 @@ void GuitarDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // 5) Amp (NAM)
     nam.process (mono, numSamples);
 
+    // Ha az Amp ki van kapcsolva, NEM engedjük át a nyers (clean) jelet:
+    // az amp a hangforrás, így amp nélkül néma a kimenet (nem "direct monitor").
+    if (pNamOn->load() <= 0.5f)
+        monoBuffer.clear();
+
     // --- Mono -> Stereo ---------------------------------------------------
     for (int ch = 0; ch < numOut; ++ch)
         buffer.copyFrom (ch, 0, mono, numSamples);
@@ -226,6 +268,9 @@ void GuitarDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     // 6) Cab IR (zero-latency, bypassolható)
     cab.process (block);
+
+    // 6b) EQ (alacsony latenciás IIR, Cab után)
+    eq.process (block);
 
     // 7) Delay (sztereó, visszacsatolással)
     {
@@ -254,6 +299,29 @@ void GuitarDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // 9) Output Gain
     for (int ch = 0; ch < numOut; ++ch)
         outputGain.applyGain (buffer.getWritePointer (ch), numSamples);
+}
+
+//==============================================================================
+void GuitarDspProcessor::copyRecentInput (float* dest, int numToCopy) const noexcept
+{
+    if (tunerRing.empty() || numToCopy <= 0)
+    {
+        juce::FloatVectorOperations::clear (dest, numToCopy);
+        return;
+    }
+
+    const int n = juce::jmin (numToCopy, tunerRingSize);
+    int r = tunerWrite.load (std::memory_order_relaxed) - n;
+    while (r < 0) r += tunerRingSize;
+
+    for (int i = 0; i < n; ++i)
+    {
+        dest[i] = tunerRing[(size_t) r];
+        if (++r >= tunerRingSize) r = 0;
+    }
+    // Ha kértek többet, mint amennyi van, a maradékot nullázzuk.
+    for (int i = n; i < numToCopy; ++i)
+        dest[i] = 0.0f;
 }
 
 //==============================================================================

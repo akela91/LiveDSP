@@ -71,7 +71,13 @@ public:
             else
                 lastStatus = "betöltve";
 
-            model = std::move (newModel);
+            // Szálbiztos csere: a get_dsp/Reset (lassú) a zár NÉLKÜL futott;
+            // csak a pointer-cserét védjük. A régi modell itt, az üzenetszálon
+            // semmisül meg (nem a hangszálon).
+            {
+                const juce::SpinLock::ScopedLockType sl (modelLock);
+                model = std::move (newModel);
+            }
             loadedName = namFile.getFileNameWithoutExtension();
             return true;
         }
@@ -94,7 +100,13 @@ public:
     // Mono, in-place feldolgozás.
     void process (float* samples, int numSamples) noexcept
     {
-        if (! enabled || model == nullptr)
+        if (! enabled)
+            return;
+
+        // tryLock: ha épp modellcsere zajlik (üzenetszál), kihagyjuk ezt a blokkot
+        // (rövid, hallhatatlan), nem blokkoljuk a hangszálat.
+        const juce::SpinLock::ScopedTryLockType sl (modelLock);
+        if (! sl.isLocked() || model == nullptr)
             return;
 
         jassert (numSamples <= maxBlockSize);
@@ -113,6 +125,7 @@ public:
 
 private:
     std::unique_ptr<nam::DSP> model;
+    juce::SpinLock modelLock;   // a model pointer cseréjét védi
     juce::String loadedName;
     juce::String lastStatus { "nincs betöltési kísérlet" };
 

@@ -146,7 +146,8 @@ juce_generate_juce_header(guitarDSP)
 
 target_sources(guitarDSP PRIVATE
     source/PluginProcessor.cpp
-    source/PluginEditor.cpp)
+    source/PluginEditor.cpp
+    source/ui/GuitarView.cpp)
 
 target_include_directories(guitarDSP PRIVATE
     source

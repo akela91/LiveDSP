@@ -8,13 +8,19 @@
 #include "dsp/NamProcessor.h"
 #include "dsp/CabConvolver.h"
 #include "dsp/Equalizer.h"
+#include "dsp/VocalChain.h"
 
 /**
-    guitarDSP — standalone gitár amp-szimulátor processzor.
+    guitarDSP — kétmódú standalone audio app: GITÁR amp-szimulátor + ÉNEK
+    csatorna. A futás közben váltható 'appMode' dönti el, melyik jelút fut.
+    Az induló képernyő (Landing) választatja ki a módot (0 = nincs választva).
 
-    Jelút:
+    Gitár jelút:
       In -> [InputGain] -> [Gate] -> [Pitch] -> [Overdrive] -> [NAM]
-         -> (mono->stereo) -> [Cab IR] -> [Delay] -> [Reverb] -> [OutputGain] -> Out
+         -> (mono->stereo) -> [Cab IR] -> [EQ] -> [Delay] -> [Reverb] -> [OutputGain] -> Out
+
+    Ének jelút (mono mikrofon -> sztereó, VocalChain ProcessorChain):
+      In -> [Gain] -> [LowCut 90Hz] -> [Comp] -> [Air 6kHz] -> [Reverb] -> [Limiter] -> Out
 */
 class GuitarDspProcessor  : public juce::AudioProcessor,
                             private juce::AudioProcessorValueTreeState::Listener
@@ -57,6 +63,14 @@ public:
 
     int getCurrentBlockSize() const noexcept { return currentBlockSize; }
 
+    //==============================================================================
+    // App-mód: 0 = nincs választva (Landing), 1 = Gitár, 2 = Ének. Futás közben
+    // váltható (a Landing képernyőről és a nézetek "menü" gombjáról). Nem kerül
+    // az állapotba — minden indításkor a Landing képernyő jön be.
+    enum class AppMode { none = 0, guitar = 1, vocal = 2 };
+    int  getAppMode() const noexcept { return appMode.load(); }
+    void setAppMode (int m) noexcept { appMode.store (m); }
+
     // A jelenleg AKTÍV modulok által hozzáadott latencia (mintában) — dinamikus,
     // követi a kapcsolók állását (pl. pitch be/ki). Az élő kijelzőhöz.
     int getEffectiveLatencySamples() const noexcept;
@@ -71,16 +85,24 @@ public:
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     void updateParametersFromApvts() noexcept;
+    void updateVocalFromApvts() noexcept;
+    void processGuitar (juce::AudioBuffer<float>& buffer) noexcept;
+    void processVocal  (juce::AudioBuffer<float>& buffer) noexcept;
     void parameterChanged (const juce::String& parameterID, float newValue) override;
 
+    std::atomic<int> appMode { (int) AppMode::none };
+
     //==============================================================================
-    // DSP modulok
+    // DSP modulok — gitár jelút
     NoiseGate     gate;
     Overdrive     overdrive;
     PitchShifter  pitchShifter;
     NamProcessor  nam;
     CabConvolver  cab;
     Equalizer     eq;
+
+    // DSP modul — ének jelút
+    VocalChain    vocal;
 
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLine { 96000 };
     juce::dsp::Reverb reverb;
@@ -127,6 +149,16 @@ private:
     std::atomic<float>* pReverbAmt   { nullptr };
     std::atomic<float>* pEqOn        { nullptr };
     std::array<std::atomic<float>*, Equalizer::numBands> pEqBands { };
+
+    // Ének paraméter-pointerek
+    std::atomic<float>* pVocGain       { nullptr };
+    std::atomic<float>* pVocCompOn     { nullptr };
+    std::atomic<float>* pVocCompThresh { nullptr };
+    std::atomic<float>* pVocCompRatio  { nullptr };
+    std::atomic<float>* pVocAirOn      { nullptr };
+    std::atomic<float>* pVocAir        { nullptr };
+    std::atomic<float>* pVocReverbOn   { nullptr };
+    std::atomic<float>* pVocReverbMix  { nullptr };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarDspProcessor)
 };

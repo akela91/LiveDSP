@@ -35,6 +35,15 @@ GuitarDspProcessor::GuitarDspProcessor()
     for (int i = 0; i < Equalizer::numBands; ++i)
         pEqBands[(size_t) i] = apvts.getRawParameterValue ("eqBand" + juce::String (i));
 
+    pVocGain       = apvts.getRawParameterValue ("vocGain");
+    pVocCompOn     = apvts.getRawParameterValue ("vocCompOn");
+    pVocCompThresh = apvts.getRawParameterValue ("vocCompThresh");
+    pVocCompRatio  = apvts.getRawParameterValue ("vocCompRatio");
+    pVocAirOn      = apvts.getRawParameterValue ("vocAirOn");
+    pVocAir        = apvts.getRawParameterValue ("vocAir");
+    pVocReverbOn   = apvts.getRawParameterValue ("vocReverbOn");
+    pVocReverbMix  = apvts.getRawParameterValue ("vocReverbMix");
+
     // A pitch-latencia élő újrakonfigurálása (üzenetszálon).
     apvts.addParameterListener ("pitchLatency", this);
     // Motorváltáskor a pitch shifter állapotát üzenetszálon resetelni kell.
@@ -150,6 +159,30 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarDspProcessor::createPa
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "reverbAmount", 1 },
         "Reverb", NormalisableRange<float> { 0.0f, 1.0f, 0.01f }, 0.25f));
 
+    //==========================================================================
+    // ÉNEK (Vocal) mód paraméterei
+    //==========================================================================
+    // Input Gain: digitális előerősítő a halk dinamikus mikrofonhoz (0..+24 dB).
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocGain", 1 },
+        "Vocal Gain", NormalisableRange<float> { 0.0f, 24.0f, 0.1f }, 6.0f));
+
+    // Compressor (Attack 5 ms / Release 100 ms FIX a motorban).
+    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocCompOn", 1 }, "Vocal Comp On", true));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocCompThresh", 1 },
+        "Vocal Comp Threshold", NormalisableRange<float> { -40.0f, 0.0f, 0.1f }, -18.0f));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocCompRatio", 1 },
+        "Vocal Comp Ratio", NormalisableRange<float> { 1.0f, 10.0f, 0.1f }, 3.0f));
+
+    // High-Shelf "air/presence" (6 kHz FIX, 0..+12 dB emelés).
+    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocAirOn", 1 }, "Vocal Air On", true));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocAir", 1 },
+        "Vocal Air", NormalisableRange<float> { 0.0f, 12.0f, 0.1f }, 3.0f));
+
+    // Reverb Wet/Dry mix (0..100%); room/damp FIX a motorban.
+    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocReverbOn", 1 }, "Vocal Reverb On", true));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocReverbMix", 1 },
+        "Vocal Reverb Mix", NormalisableRange<float> { 0.0f, 100.0f, 1.0f }, 20.0f));
+
     return layout;
 }
 
@@ -171,6 +204,9 @@ void GuitarDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     cab.prepare (stereoSpec);
     eq.prepare (stereoSpec);
+
+    // Ének lánc sztereó blokkon dolgozik (mono mikrofon mindkét csatornán).
+    vocal.prepare (stereoSpec);
 
     // A delay max hossza a tényleges SR-hez igazítva (max paraméter 1500 ms + tartalék).
     delayLine.setMaximumDelayInSamples ((int) (sampleRate * 2.0) + samplesPerBlock);
@@ -272,6 +308,21 @@ void GuitarDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                        juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
+
+    switch ((AppMode) appMode.load())
+    {
+        case AppMode::guitar: processGuitar (buffer); return;
+        case AppMode::vocal:  processVocal  (buffer); return;
+        case AppMode::none:
+        default:
+            // Landing képernyő: nincs feldolgozás, néma kimenet.
+            buffer.clear();
+            return;
+    }
+}
+
+void GuitarDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexcept
+{
     const int numSamples = buffer.getNumSamples();
     const int numOut     = buffer.getNumChannels();
     const int numIn      = getTotalNumInputChannels();
@@ -361,8 +412,50 @@ void GuitarDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 }
 
 //==============================================================================
+void GuitarDspProcessor::updateVocalFromApvts() noexcept
+{
+    vocal.setInputGainDb  (pVocGain->load());
+    vocal.setCompThreshold (pVocCompThresh->load());
+    vocal.setCompRatio     (pVocCompRatio->load());
+    vocal.setAirDb         (pVocAir->load());
+    vocal.setReverbMix     (pVocReverbMix->load() * 0.01f);   // % -> 0..1
+
+    vocal.setCompEnabled   (pVocCompOn->load()   > 0.5f);
+    vocal.setAirEnabled    (pVocAirOn->load()    > 0.5f);
+    vocal.setReverbEnabled (pVocReverbOn->load() > 0.5f);
+}
+
+void GuitarDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
+{
+    const int numSamples = buffer.getNumSamples();
+    const int numOut     = buffer.getNumChannels();
+    const int numIn      = getTotalNumInputChannels();
+
+    updateVocalFromApvts();
+
+    // Mono mikrofonjel: az összes bemeneti csatornát monóba keverjük (mindegy,
+    // hogy a mikrofon az Input 1-en vagy 2-n van), majd minden kimenetre másoljuk.
+    monoBuffer.setSize (1, numSamples, false, false, true);
+    monoBuffer.clear();
+    float* mono = monoBuffer.getWritePointer (0);
+    for (int ch = 0; ch < numIn; ++ch)
+        monoBuffer.addFrom (0, 0, buffer, ch, 0, numSamples);
+
+    for (int ch = 0; ch < numOut; ++ch)
+        buffer.copyFrom (ch, 0, mono, numSamples);
+
+    // Teljes ének-lánc sztereó blokkon (Gain -> LowCut -> Comp -> Air -> Reverb -> Limiter).
+    juce::dsp::AudioBlock<float> block (buffer);
+    vocal.process (block);
+}
+
+//==============================================================================
 int GuitarDspProcessor::getEffectiveLatencySamples() const noexcept
 {
+    // Az ének lánc végig nulla-latenciás (IIR/comp/reverb/limiter).
+    if ((AppMode) appMode.load() != AppMode::guitar)
+        return 0;
+
     int s = 0;
 
     // A pitch shifter csak akkor ad latenciát, ha be van kapcsolva ÉS van eltolás

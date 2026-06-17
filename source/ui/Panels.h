@@ -317,6 +317,47 @@ private:
 };
 
 //==============================================================================
+/** Csak-kijelző panel: fejléc + egy középre igazított FIX érték (pl. "90 Hz").
+    Olyan modulokhoz, amelyeknek nincs állítható paramétere (low-cut, limiter). */
+class InfoPanel : public PanelBase
+{
+public:
+    InfoPanel (juce::String titleText, juce::String valueText, int widthPx = 96)
+        : title (std::move (titleText)), value (std::move (valueText)), width (widthPx) {}
+
+    int getPreferredWidth() const override { return width; }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto b = getLocalBounds().toFloat();
+        g.setColour (juce::Colour (GuitarLookAndFeel::cPanel));
+        g.fillRoundedRectangle (b, 8.0f);
+
+        auto header = b.removeFromTop (24.0f);
+        g.setColour (juce::Colour (GuitarLookAndFeel::cPanelHead));
+        g.fillRoundedRectangle (header, 8.0f);
+        g.fillRect (header.withTop (header.getCentreY()));
+        g.setColour (juce::Colour (GuitarLookAndFeel::cAccent));
+        g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
+        g.drawText (title, header.toNearestInt().reduced (10, 0), juce::Justification::centredLeft);
+
+        // FIX érték a panel közepén.
+        g.setColour (juce::Colour (GuitarLookAndFeel::cText));
+        g.setFont (juce::Font (juce::FontOptions (17.0f, juce::Font::bold)));
+        g.drawText (value, getLocalBounds().withTrimmedTop (24), juce::Justification::centred);
+
+        g.setColour (juce::Colour (GuitarLookAndFeel::cTextDim));
+        g.setFont (juce::Font (juce::FontOptions (10.0f)));
+        g.drawText ("fixed", getLocalBounds().withTrimmedTop (24).removeFromBottom (18),
+                    juce::Justification::centred);
+    }
+
+private:
+    juce::String title, value;
+    int width;
+};
+
+//==============================================================================
 /** EQ-panel: 9 függőleges fader + power. */
 class EqPanel : public PanelBase
 {

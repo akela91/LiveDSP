@@ -42,6 +42,31 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(signalsmith_stretch)
 
+# --- Rubber Band Library (pitch shifter, GPL/commercial) -------------------
+# A repó Meson/Makefile alapú, nincs használható CMakeLists-e. Ezért a
+# SOURCE_SUBDIR trükkel csak LETÖLTJÜK a forrást, majd a hivatalos egyfájlos
+# fordítási egységből (single/RubberBandSingle.cpp) építünk statikus libet:
+# ez a beépített FFT-t és resamplert használja, külső függőség nélkül,
+# egyszálú módban (NO_THREADING). Include: <rubberband/RubberBandStretcher.h>.
+FetchContent_Declare(
+    rubberband_src
+    GIT_REPOSITORY https://github.com/breakfastquay/rubberband.git
+    GIT_TAG        v4.0.0
+    GIT_SHALLOW    TRUE
+    SOURCE_SUBDIR  _do_not_build   # nem létező almappa -> nincs add_subdirectory
+)
+FetchContent_MakeAvailable(rubberband_src)
+
+add_library(rubberband STATIC "${rubberband_src_SOURCE_DIR}/single/RubberBandSingle.cpp")
+target_compile_features(rubberband PUBLIC cxx_std_20)
+# SYSTEM: a Rubber Band third-party warningjait elnyomja a fogyasztóknál is.
+# A gyökér a "rubberband/...h" publikus headerekhez ÉS a belső forrásfájlok
+# "rubberband/...h" include-jaihoz is kell.
+target_include_directories(rubberband SYSTEM PUBLIC "${rubberband_src_SOURCE_DIR}")
+if (MSVC)
+    target_compile_definitions(rubberband PRIVATE _USE_MATH_DEFINES NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+
 # --- Neural Amp Modeler Core (MIT) ----------------------------------------
 # A repó saját CMakeLists-e csak a 'tools' segédprogramokat építi (GCC/Clang
 # flag-ekkel, ami MSVC-n elhasal), könyvtár-célt NEM ad. Ezért a SOURCE_SUBDIR
@@ -145,6 +170,7 @@ endif()
 
 target_link_libraries(guitarDSP PRIVATE
     signalsmith-stretch
+    rubberband
     # WHOLE_ARCHIVE: a NAM architektúrák file-scope statikus inicializálókkal
     # regisztrálnak (pl. SlimmableContainer a container.cpp-ben). Statikus libnél
     # az MSVC eldobná a nem hivatkozott objektumfájlokat -> a regisztráció

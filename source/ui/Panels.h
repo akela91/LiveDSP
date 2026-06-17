@@ -230,6 +230,93 @@ private:
 };
 
 //==============================================================================
+/** PITCH-panel: power + SEMI/LAT knob + motorválasztó (Signalsmith/RubberBand). */
+class PitchPanel : public PanelBase
+{
+public:
+    explicit PitchPanel (APVTS& state)
+    {
+        power = std::make_unique<PowerButton> (state, "pitchOn");
+        addAndMakeVisible (*power);
+
+        semi = std::make_unique<KnobControl> (state, "pitchSemitones", "SEMI");
+        lat  = std::make_unique<KnobControl> (state, "pitchLatency",   "LAT");
+        addAndMakeVisible (*semi);
+        addAndMakeVisible (*lat);
+
+        auto styleCombo = [] (juce::ComboBox& c)
+        {
+            c.setColour (juce::ComboBox::backgroundColourId, juce::Colour (GuitarLookAndFeel::cPanelHead));
+            c.setColour (juce::ComboBox::textColourId,       juce::Colour (GuitarLookAndFeel::cText));
+            c.setColour (juce::ComboBox::arrowColourId,      juce::Colour (GuitarLookAndFeel::cAccent));
+            c.setColour (juce::ComboBox::outlineColourId,    juce::Colours::transparentBlack);
+        };
+
+        engine.addItem ("Signalsmith", 1);
+        engine.addItem ("RubberBand",  2);
+        engine.addItem ("RB Live",     3);
+        styleCombo (engine);
+        addAndMakeVisible (engine);
+        engineAtt = std::make_unique<APVTS::ComboBoxAttachment> (state, "pitchEngine", engine);
+
+        // RB Live minőség/latencia profil (csak az RB Live motornál releváns).
+        quality.addItem ("Fast", 1);
+        quality.addItem ("Fine", 2);
+        styleCombo (quality);
+        addAndMakeVisible (quality);
+        qualityAtt = std::make_unique<APVTS::ComboBoxAttachment> (state, "pitchLiveQuality", quality);
+    }
+
+    int getPreferredWidth() const override { return 176; }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto b = getLocalBounds().toFloat();
+        g.setColour (juce::Colour (GuitarLookAndFeel::cPanel));
+        g.fillRoundedRectangle (b, 8.0f);
+
+        auto header = b.removeFromTop (24.0f);
+        g.setColour (juce::Colour (GuitarLookAndFeel::cPanelHead));
+        g.fillRoundedRectangle (header, 8.0f);
+        g.fillRect (header.withTop (header.getCentreY()));
+
+        g.setColour (juce::Colour (GuitarLookAndFeel::cAccent));
+        g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
+        g.drawText ("PITCH", header.toNearestInt().reduced (10, 0).withTrimmedRight (24),
+                    juce::Justification::centredLeft);
+    }
+
+    void resized() override
+    {
+        auto r = getLocalBounds();
+        auto header = r.removeFromTop (24);
+        power->setBounds (header.removeFromRight (24).reduced (4));
+
+        r.reduce (8, 6);
+
+        // Alsó sor: motorválasztó (bal) + RB Live minőség (jobb, 'Q:').
+        auto bottom = r.removeFromBottom (20);
+        quality.setBounds (bottom.removeFromRight (54));
+        bottom.removeFromRight (4);
+        engine.setBounds (bottom);
+        r.removeFromBottom (4);
+
+        const int w = r.getWidth() / 2;
+        semi->setBounds (r.removeFromLeft (w).reduced (2));
+        lat->setBounds  (r.reduced (2));
+    }
+
+private:
+    std::unique_ptr<PowerButton>  power;
+    std::unique_ptr<KnobControl>  semi;
+    std::unique_ptr<KnobControl>  lat;
+    juce::ComboBox                engine;
+    juce::ComboBox                quality;
+    std::unique_ptr<APVTS::ComboBoxAttachment> engineAtt;
+    std::unique_ptr<APVTS::ComboBoxAttachment> qualityAtt;
+};
+
+//==============================================================================
 /** EQ-panel: 9 függőleges fader + power. */
 class EqPanel : public PanelBase
 {

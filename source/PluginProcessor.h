@@ -111,6 +111,8 @@ private:
     std::atomic<float>* pPitchOn     { nullptr };
     std::atomic<float>* pPitchSemis  { nullptr };
     std::atomic<float>* pPitchLat    { nullptr };
+    std::atomic<float>* pPitchEngine { nullptr };
+    std::atomic<float>* pPitchLiveQ  { nullptr };
     std::atomic<float>* pDriveOn     { nullptr };
     std::atomic<float>* pDriveAmt    { nullptr };
     std::atomic<float>* pDriveTone   { nullptr };

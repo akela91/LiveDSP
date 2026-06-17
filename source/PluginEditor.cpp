@@ -86,8 +86,7 @@ void GuitarDspEditor::buildPanels()
     // 1. sor — jelút eleje
     row1.add (new ModulePanel (processorRef.apvts, "INPUT",  {},        { { "inputGain", "IN" } }));
     row1.add (new ModulePanel (processorRef.apvts, "GATE",   "gateOn",  { { "gateThreshold", "THRESH" } }));
-    row1.add (new ModulePanel (processorRef.apvts, "PITCH",  "pitchOn",
-                               { { "pitchSemitones", "SEMI" }, { "pitchLatency", "LAT" } }));
+    row1.add (new PitchPanel (processorRef.apvts));
     row1.add (new ModulePanel (processorRef.apvts, "DRIVE",  "driveOn",
                                { { "driveAmount", "DRIVE" }, { "driveTone", "TONE" }, { "driveLevel", "LEVEL" } }));
 

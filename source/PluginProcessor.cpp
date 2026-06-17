@@ -17,6 +17,8 @@ GuitarDspProcessor::GuitarDspProcessor()
     pPitchOn    = apvts.getRawParameterValue ("pitchOn");
     pPitchSemis = apvts.getRawParameterValue ("pitchSemitones");
     pPitchLat   = apvts.getRawParameterValue ("pitchLatency");
+    pPitchEngine = apvts.getRawParameterValue ("pitchEngine");
+    pPitchLiveQ  = apvts.getRawParameterValue ("pitchLiveQuality");
     pDriveOn    = apvts.getRawParameterValue ("driveOn");
     pDriveAmt   = apvts.getRawParameterValue ("driveAmount");
     pDriveTone  = apvts.getRawParameterValue ("driveTone");
@@ -35,6 +37,10 @@ GuitarDspProcessor::GuitarDspProcessor()
 
     // A pitch-latencia élő újrakonfigurálása (üzenetszálon).
     apvts.addParameterListener ("pitchLatency", this);
+    // Motorváltáskor a pitch shifter állapotát üzenetszálon resetelni kell.
+    apvts.addParameterListener ("pitchEngine", this);
+    // Az RB Live minőségprofil élő újrakonfigurálása (üzenetszálon).
+    apvts.addParameterListener ("pitchLiveQuality", this);
 
     // Fejlesztői kényelem: az alapértelmezett models/ mappából betöltjük az
     // első NAM modellt és IR-t MÁR a konstruktorban (az editor előtt), hogy a
@@ -92,6 +98,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarDspProcessor::createPa
     // nagyobb = jobb minőség (nagyobb latencia). Élőben átkonfigurálja a motort.
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "pitchLatency", 1 },
         "Pitch Latency", NormalisableRange<float> { 8.0f, 80.0f, 1.0f }, 40.0f));
+    // Pitch motor (alapértelmezés: RubberBand): 0 = Signalsmith (állítható
+    // latencia), 1 = Rubber Band Stretcher (R3 'Finer', jó polifonikus minőség),
+    // 2 = Rubber Band LiveShifter (v4, legkisebb latencia). A 'pitchLatency'
+    // knob csak a Signalsmith motorra hat.
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "pitchEngine", 1 },
+        "Pitch Engine", StringArray { "Signalsmith", "RubberBand", "RB Live" }, 2));
+    // RB Live minőségprofil (csak az RB Live motorra hat): Fast = legkisebb
+    // latencia (rövid ablak), Fine = jobb minőség (közepes ablak + formant).
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "pitchLiveQuality", 1 },
+        "RB Live Quality", StringArray { "Fast", "Fine" }, 0));
 
     // Overdrive
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "driveOn", 1 }, "Drive On", false));
@@ -201,6 +217,8 @@ void GuitarDspProcessor::updateParametersFromApvts() noexcept
 
     pitchShifter.setEnabled   (pPitchOn->load() > 0.5f);
     pitchShifter.setSemitones (pPitchSemis->load());
+    pitchShifter.setEngine      ((int) pPitchEngine->load());
+    pitchShifter.setLiveQuality ((int) pPitchLiveQ->load());
 
     overdrive.setEnabled (pDriveOn->load() > 0.5f);
     overdrive.setDrive   (pDriveAmt->load());
@@ -234,6 +252,19 @@ void GuitarDspProcessor::parameterChanged (const juce::String& parameterID, floa
     {
         pitchShifter.setBlockMs ((double) newValue);
         pitchShifter.reconfigure();
+    }
+    else if (parameterID == "pitchEngine")
+    {
+        // Tiszta váltás: a kiválasztott motor + FIFO állapotát kiürítjük.
+        pitchShifter.setEngine ((int) newValue);
+        pitchShifter.reset();
+    }
+    else if (parameterID == "pitchLiveQuality")
+    {
+        // RB Live profilváltás: a shiftert újra kell építeni (ablakopció a
+        // konstruktorban dől el), ezért üzenetszálon reconfiguráljuk.
+        pitchShifter.setLiveQuality ((int) newValue);
+        pitchShifter.reconfigureLive();
     }
 }
 

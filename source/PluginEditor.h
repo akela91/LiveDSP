@@ -8,9 +8,11 @@
 
 /**
     Modern, sötét guitarDSP UI (Neural DSP-stílus): felső sáv (cím + modellválasztó
-    + tuner), moduláris panelek a jelút sorrendjében, 9-sávos grafikus EQ.
+    + preset-választó + tuner), moduláris panelek a jelút sorrendjében, 9-sávos
+    grafikus EQ, élő latencia-kijelző.
 */
-class GuitarDspEditor  : public juce::AudioProcessorEditor
+class GuitarDspEditor  : public juce::AudioProcessorEditor,
+                         private juce::Timer
 {
 public:
     explicit GuitarDspEditor (GuitarDspProcessor& p);
@@ -21,22 +23,27 @@ public:
 
 private:
     void populateModelSelector();
+    void populatePresetSelector();
     void updateStatusLabel();
     void buildPanels();
     void layoutRow (juce::Rectangle<int> area, juce::OwnedArray<PanelBase>& panels);
+    void timerCallback() override;
 
     GuitarDspProcessor& processorRef;
     GuitarLookAndFeel   lnf;
 
     juce::Label      titleLabel;
     juce::ComboBox   modelSelector;
+    juce::ComboBox   presetSelector;
     juce::Label      statusLabel;
+    juce::Label      latencyLabel;
     juce::TextButton tunerButton { "TUNER" };
     TunerComponent   tuner;
 
     juce::OwnedArray<PanelBase> row1, row2;
 
     juce::Array<juce::File> modelFiles;
+    juce::Array<juce::File> presetFiles;
     bool tunerVisible { false };
 
     static constexpr int baseW = 880;

@@ -54,6 +54,8 @@ public:
     NamProcessor& getNam()       { return nam; }
     CabConvolver& getCab()       { return cab; }
 
+    int getCurrentBlockSize() const noexcept { return currentBlockSize; }
+
     // A hangolóhoz: a legfrissebb 'numToCopy' nyers bemeneti mintát másolja
     // időrendben a dest-be (üzenetszálról hívandó). A hangszállal való enyhe
     // versengés a hangolónál elfogadható.
@@ -88,6 +90,7 @@ private:
     juce::AudioBuffer<float> monoBuffer;
 
     double currentSampleRate { 48000.0 };
+    int    currentBlockSize  { 0 };
 
     // Tuner: körkörös puffer a nyers (pre-gain) monó bemenetről.
     static constexpr int tunerRingSize = 16384;

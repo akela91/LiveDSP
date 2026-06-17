@@ -133,6 +133,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarDspProcessor::createPa
 void GuitarDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
+    currentBlockSize  = samplesPerBlock;
 
     juce::dsp::ProcessSpec monoSpec { sampleRate, (juce::uint32) samplesPerBlock, 1 };
     juce::dsp::ProcessSpec stereoSpec { sampleRate, (juce::uint32) samplesPerBlock, 2 };

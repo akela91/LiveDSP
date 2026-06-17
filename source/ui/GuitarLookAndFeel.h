@@ -13,8 +13,8 @@ public:
     static constexpr juce::uint32 cBackground = 0xff0d0d10;
     static constexpr juce::uint32 cPanel      = 0xff17171c;
     static constexpr juce::uint32 cPanelHead  = 0xff20202a;
-    static constexpr juce::uint32 cAccent     = 0xffe0a04a;  // borostyán
-    static constexpr juce::uint32 cAccentDim  = 0xff5a4a30;
+    static constexpr juce::uint32 cAccent     = 0xff4aa8e0;  // jégkék acél
+    static constexpr juce::uint32 cAccentDim  = 0xff2c4a5e;
     static constexpr juce::uint32 cText        = 0xffe9e9ec;
     static constexpr juce::uint32 cTextDim     = 0xff8a8a93;
     static constexpr juce::uint32 cTrack       = 0xff34343e;

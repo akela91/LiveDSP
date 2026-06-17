@@ -117,6 +117,7 @@ private:
 class ModulePanel : public PanelBase
 {
 public:
+    enum class Icon { none, amp, cab };
     struct Knob { juce::String id, label; };
 
     ModulePanel (APVTS& state, juce::String titleText,
@@ -136,8 +137,12 @@ public:
         }
     }
 
+    void setIcon (Icon i) { icon = i; repaint(); }
+
     int getPreferredWidth() const override
     {
+        if (icon != Icon::none && knobs.isEmpty())
+            return 120;
         return juce::jmax (90, 18 + knobs.size() * knobWidth);
     }
 
@@ -157,6 +162,45 @@ public:
         auto textArea = header.toNearestInt().reduced (10, 0);
         if (power != nullptr) textArea.removeFromRight (headerH);
         g.drawText (title, textArea, juce::Justification::centredLeft);
+
+        if (icon != Icon::none && knobs.isEmpty())
+            drawIcon (g, getLocalBounds().withTrimmedTop (headerH).reduced (14).toFloat());
+    }
+
+    void drawIcon (juce::Graphics& g, juce::Rectangle<float> area)
+    {
+        const auto accent = juce::Colour (GuitarLookAndFeel::cAccent);
+        const auto dim    = juce::Colour (GuitarLookAndFeel::cTextDim);
+        auto box = area.withSizeKeepingCentre (juce::jmin (area.getWidth(), 84.0f),
+                                               juce::jmin (area.getHeight(), 70.0f));
+
+        if (icon == Icon::amp)
+        {
+            // amp fej: keret + rácsvonalak + 3 gomb felül
+            g.setColour (dim);
+            g.drawRoundedRectangle (box, 6.0f, 2.0f);
+            auto grille = box.reduced (10.0f).withTrimmedTop (14.0f);
+            g.setColour (accent.withAlpha (0.85f));
+            for (float gx = grille.getX() + 3.0f; gx < grille.getRight(); gx += 6.0f)
+                g.drawLine (gx, grille.getY(), gx, grille.getBottom(), 1.2f);
+            for (int k = 0; k < 3; ++k)
+            {
+                const float cx = box.getX() + 14.0f + k * 16.0f;
+                g.setColour (accent);
+                g.fillEllipse (cx - 3.0f, box.getY() + 5.0f, 6.0f, 6.0f);
+            }
+        }
+        else // cab
+        {
+            g.setColour (dim);
+            g.drawRoundedRectangle (box, 6.0f, 2.0f);
+            const auto c = box.getCentre();
+            const float r = juce::jmin (box.getWidth(), box.getHeight()) * 0.36f;
+            g.setColour (accent.withAlpha (0.8f));
+            g.drawEllipse (c.x - r, c.y - r, r * 2.0f, r * 2.0f, 2.0f);
+            g.setColour (accent);
+            g.fillEllipse (c.x - r * 0.45f, c.y - r * 0.45f, r * 0.9f, r * 0.9f);
+        }
     }
 
     void resized() override
@@ -180,6 +224,7 @@ private:
     static constexpr int knobWidth = 66;
 
     juce::String title;
+    Icon icon { Icon::none };
     std::unique_ptr<PowerButton> power;
     juce::OwnedArray<KnobControl> knobs;
 };
@@ -202,7 +247,7 @@ public:
         }
     }
 
-    int getPreferredWidth() const override { return 18 + faders.size() * 30; }
+    int getPreferredWidth() const override { return 18 + scaleW + faders.size() * 30; }
 
     void paint (juce::Graphics& g) override
     {
@@ -218,6 +263,22 @@ public:
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         g.drawText ("EQUALIZER", header.toNearestInt().reduced (10, 0).withTrimmedRight (24),
                     juce::Justification::centredLeft);
+
+        // dB-skála + rácsvonalak a fader-régióban
+        auto body = getContentBounds();
+        auto travel = body.withTrimmedBottom (14);   // a fader csúszó-tartománya
+        const int dbMarks[] = { 15, 10, 5, 0, -5, -10, -15 };
+        g.setFont (juce::Font (juce::FontOptions (9.0f)));
+        for (int dB : dbMarks)
+        {
+            const float t = 1.0f - (float) (dB + 15) / 30.0f;       // 0=tető, 1=alja
+            const float y = travel.getY() + t * travel.getHeight();
+            g.setColour (juce::Colour (GuitarLookAndFeel::cTrack).withAlpha (dB == 0 ? 0.9f : 0.4f));
+            g.drawLine ((float) body.getX(), y, (float) body.getRight(), y, dB == 0 ? 1.2f : 0.8f);
+            g.setColour (juce::Colour (GuitarLookAndFeel::cTextDim));
+            g.drawText ((dB > 0 ? "+" : "") + juce::String (dB),
+                        2, (int) y - 7, scaleW - 2, 14, juce::Justification::centredRight);
+        }
     }
 
     void resized() override
@@ -226,14 +287,27 @@ public:
         auto header = r.removeFromTop (24);
         power->setBounds (header.removeFromRight (24).reduced (4));
 
-        r.reduce (8, 6);
+        auto body = getContentBounds();
         if (! faders.isEmpty())
         {
-            const int w = r.getWidth() / faders.size();
+            const int w = body.getWidth() / faders.size();
             for (auto* f : faders)
-                f->setBounds (r.removeFromLeft (w));
+                f->setBounds (body.removeFromLeft (w));
         }
     }
+
+private:
+    juce::Rectangle<int> getContentBounds() const
+    {
+        auto r = getLocalBounds();
+        r.removeFromTop (24);
+        r.reduce (8, 6);
+        r.removeFromLeft (scaleW);   // dB-skála gutter (bal oldal)
+        return r;
+    }
+
+    static constexpr int scaleW = 26;
+public:
 
 private:
     std::unique_ptr<PowerButton> power;

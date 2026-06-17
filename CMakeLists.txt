@@ -108,6 +108,7 @@ juce_add_plugin(guitarDSP
     BUNDLE_ID               "eu.qulto.guitarDSP"
     PLUGIN_MANUFACTURER_CODE Qult
     PLUGIN_CODE             Gdsp
+    ICON_BIG                "${CMAKE_CURRENT_SOURCE_DIR}/resources/AppIcon.png"
     FORMATS                 Standalone
     IS_SYNTH                FALSE
     NEEDS_MIDI_INPUT        FALSE
@@ -132,7 +133,9 @@ target_compile_definitions(guitarDSP PUBLIC
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_STRICT_REFCOUNTEDPOINTER=1
     # A standalone az alapértelmezett modellmappát itt keresi (fejlesztéshez):
-    GUITARDSP_DEFAULT_MODELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/models")
+    GUITARDSP_DEFAULT_MODELS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/models"
+    # Preset ("favs") mappa az elmentett state-eknek:
+    GUITARDSP_FAVS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/favs")
 
 # ASIO bekapcsolása, ha elérhető az SDK
 if (GUITARDSP_HAS_ASIO)

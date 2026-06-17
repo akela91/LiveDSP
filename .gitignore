@@ -16,8 +16,11 @@ cmake-build-*/
 Thumbs.db
 .DS_Store
 
-# ASIO SDK (licenc miatt nem verziókövetjük)
-/ext/asiosdk/
+# ASIO SDK: a Steinberg ASIO SDK GPLv3 variánsa VERZIÓKÖVETHETŐ (a build
+# fordítási idejű függősége) — ezért már NEM ignoráljuk az egészet.
+# KIVÉTEL: a Steinberg ASIO logó-artwork VÉDJEGY, NEM a GPL fedi → ezt nem
+# verziózzuk (és a terméken sem használjuk).
+/ext/ASIOSDK/Steinberg ASIO Logo Artwork/
 
 # A modelleket NEM verziókövetjük (nagy bináris fájlok + a kereskedelmi
 # NAM-captúrák licence). Lokálisan a build így is használja őket a

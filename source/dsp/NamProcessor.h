@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <atomic>
+#include <filesystem>
 
 // Neural Amp Modeler Core. Az include útvonalat a CMake nam_core célja adja.
 #include "NAM/dsp.h"
@@ -48,7 +49,10 @@ public:
 
         try
         {
-            auto newModel = nam::get_dsp (namFile.getFullPathName().toStdString());
+            // Explicit std::filesystem::path: a string többértelmű lenne a
+            // path és a nlohmann::json overload között.
+            const std::filesystem::path path { namFile.getFullPathName().toStdString() };
+            auto newModel = nam::get_dsp (path);
             if (newModel == nullptr)
                 return false;
 
@@ -88,7 +92,10 @@ public:
         for (int i = 0; i < numSamples; ++i)
             inBuffer[(size_t) i] = (NAM_SAMPLE) samples[i];
 
-        model->process (inBuffer.data(), outBuffer.data(), numSamples);
+        // A NAM API channel-major: input[channel][frame]. A modell mono (1 cs.).
+        NAM_SAMPLE* inChannels[1]  { inBuffer.data() };
+        NAM_SAMPLE* outChannels[1] { outBuffer.data() };
+        model->process (inChannels, outChannels, numSamples);
 
         for (int i = 0; i < numSamples; ++i)
             samples[i] = (float) outBuffer[(size_t) i];

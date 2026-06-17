@@ -3,9 +3,10 @@
 #include <JuceHeader.h>
 #include <vector>
 
-// Signalsmith Stretch (header-only, MIT). Az include útvonalat a CMake
-// signalsmith_stretch_lib interface célja adja.
-#include "signalsmith-stretch.h"
+// Signalsmith Stretch (header-only, MIT). Az include útvonalat a
+// 'signalsmith-stretch' CMake cél adja (include/ mappa), ami transzitívan
+// behúzza a signalsmith-linear függőséget is.
+#include "signalsmith-stretch/signalsmith-stretch.h"
 
 /**
     Valós idejű, polifonikus pitch shifter a Signalsmith Stretch köré.

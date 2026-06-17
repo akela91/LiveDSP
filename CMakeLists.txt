@@ -1,11 +1,13 @@
-cmake_minimum_required(VERSION 3.22)
+# 3.24 kell a Signalsmith Stretch saját CMakeLists-éhez.
+cmake_minimum_required(VERSION 3.24)
 
 project(guitarDSP VERSION 0.1.0 LANGUAGES C CXX)
 
 # ---------------------------------------------------------------------------
 # Global settings
 # ---------------------------------------------------------------------------
-set(CMAKE_CXX_STANDARD 17)
+# C++20: a Neural Amp Modeler Core C++20-at igényel (és a headerei is).
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Statikus MSVC runtime nem szükséges; a JUCE standalone önállóan fut.
@@ -28,7 +30,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(juce)
 
 # --- Signalsmith Stretch (pitch shifter, header-only, MIT) ----------------
-# A repó almodulként hozza a "dsp" könyvtárat -> GIT_SUBMODULES kell.
+# A saját CMakeLists-e létrehozza a 'signalsmith-stretch' INTERFACE célt, és
+# FetchContent-tel behúzza a 'signalsmith-linear' függőséget. Ezt használjuk,
+# NEM saját interface libet (a gyökér header a signalsmith-linear nélkül nem
+# fordulna). Include: "signalsmith-stretch/signalsmith-stretch.h".
 FetchContent_Declare(
     signalsmith_stretch
     GIT_REPOSITORY https://github.com/Signalsmith-Audio/signalsmith-stretch.git
@@ -36,39 +41,42 @@ FetchContent_Declare(
     GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(signalsmith_stretch)
-# Interface target a header-only könyvtárhoz
-add_library(signalsmith_stretch_lib INTERFACE)
-target_include_directories(signalsmith_stretch_lib INTERFACE
-    ${signalsmith_stretch_SOURCE_DIR})
 
 # --- Neural Amp Modeler Core (MIT) ----------------------------------------
-# A repó a függőségeit (Eigen, nlohmann/json) almodulként hozza a
-# Dependencies/ mappában, ezért GIT_SUBMODULES kell.
+# A repó saját CMakeLists-e csak a 'tools' segédprogramokat építi (GCC/Clang
+# flag-ekkel, ami MSVC-n elhasal), könyvtár-célt NEM ad. Ezért a SOURCE_SUBDIR
+# trükkel csak LETÖLTJÜK a forrást (nem futtatjuk a CMakeLists-ét), majd saját
+# statikus könyvtárat építünk belőle.
 FetchContent_Declare(
     nam_core_src
     GIT_REPOSITORY https://github.com/sdatkinson/NeuralAmpModelerCore.git
     GIT_TAG        main
     GIT_SHALLOW    TRUE
+    SOURCE_SUBDIR  _do_not_build   # nem létező almappa -> nincs add_subdirectory
 )
 FetchContent_MakeAvailable(nam_core_src)
 
-# A NAM core forrásait kézzel fordítjuk statikus könyvtárba, hogy ne
-# függjünk a repó saját (eszközöket is építő) CMake céljaitól.
+# A NAM core forrásai: a NAM/ gyökér + a NAM/wavenet/ almappa (a2_fast, model,
+# slimmable). A wav.cpp (AudioDSPTools) NEM kell, az csak a 'render' eszközhöz.
 file(GLOB NAM_CORE_SOURCES
-    "${nam_core_src_SOURCE_DIR}/NAM/*.cpp")
+    "${nam_core_src_SOURCE_DIR}/NAM/*.cpp"
+    "${nam_core_src_SOURCE_DIR}/NAM/*/*.cpp")
 
 add_library(nam_core STATIC ${NAM_CORE_SOURCES})
-target_compile_features(nam_core PUBLIC cxx_std_17)
-target_include_directories(nam_core PUBLIC
-    "${nam_core_src_SOURCE_DIR}"
-    "${nam_core_src_SOURCE_DIR}/NAM"
-    # Almodulként behúzott függőségek (ha a repó struktúrája változik,
-    # ezeket az útvonalakat kell igazítani):
-    "${nam_core_src_SOURCE_DIR}/Dependencies/eigen"
-    "${nam_core_src_SOURCE_DIR}/Dependencies/nlohmann")
+target_compile_features(nam_core PUBLIC cxx_std_20)
+# SYSTEM: elnyomja a NAM/Eigen third-party warningokat a fogyasztó céloknál is.
+target_include_directories(nam_core SYSTEM PUBLIC
+    "${nam_core_src_SOURCE_DIR}"                       # "NAM/dsp.h" elérhetősége
+    "${nam_core_src_SOURCE_DIR}/Dependencies/eigen"    # <Eigen/Dense>, <unsupported/Eigen/FFT>
+    "${nam_core_src_SOURCE_DIR}/Dependencies/nlohmann") # "json.hpp"
 
-# A WaveNet aktivációk gyorsabbak fast-math-csal, de a determinizmus kedvéért
-# alapból nem kapcsoljuk be.
+# A2 fast-path WaveNet bekapcsolása (upstream alapértelmezés ON), és a Windows
+# Eigen/min-max ütközés elkerülése. PUBLIC, hogy a NAM headert include-oló
+# fordítási egységeink is megkapják.
+target_compile_definitions(nam_core PUBLIC NAM_ENABLE_A2_FAST)
+if (WIN32)
+    target_compile_definitions(nam_core PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
 
 # ---------------------------------------------------------------------------
 # ASIO SDK (Steinberg) — licenc miatt NEM része a repónak
@@ -133,7 +141,7 @@ if (GUITARDSP_HAS_ASIO)
 endif()
 
 target_link_libraries(guitarDSP PRIVATE
-    signalsmith_stretch_lib
+    signalsmith-stretch
     nam_core
     juce::juce_audio_utils
     juce::juce_dsp

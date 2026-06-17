@@ -45,7 +45,10 @@ public:
     bool loadModel (const juce::File& namFile)
     {
         if (! namFile.existsAsFile())
+        {
+            lastStatus = "fájl nem létezik: " + namFile.getFullPathName();
             return false;
+        }
 
         try
         {
@@ -54,18 +57,19 @@ public:
             const std::filesystem::path path { namFile.getFullPathName().toStdString() };
             auto newModel = nam::get_dsp (path);
             if (newModel == nullptr)
+            {
+                lastStatus = "get_dsp nullptr-t adott: " + namFile.getFileName();
                 return false;
+            }
 
             newModel->Reset (sampleRate, maxBlockSize);
 
             // A modell elvárt mintavételi frekvenciájának ellenőrzése.
             const double expected = newModel->GetExpectedSampleRate();
             if (expected > 0.0 && std::abs (expected - sampleRate) > 1.0)
-            {
-                // TODO (fázis 2): resampling, ha a host SR eltér a modellétől.
-                DBG ("NAM: a modell " << expected << " Hz-re készült, a host "
-                     << sampleRate << " Hz. Lehetséges hangzásbeli eltérés.");
-            }
+                lastStatus = "betöltve (" + juce::String (expected, 0) + " Hz modell)";
+            else
+                lastStatus = "betöltve";
 
             model = std::move (newModel);
             loadedName = namFile.getFileNameWithoutExtension();
@@ -73,13 +77,19 @@ public:
         }
         catch (const std::exception& e)
         {
-            DBG ("NAM betöltési hiba: " << e.what());
+            lastStatus = juce::String ("hiba: ") + e.what();
+            return false;
+        }
+        catch (...)
+        {
+            lastStatus = "ismeretlen kivétel a betöltéskor";
             return false;
         }
     }
 
     bool isLoaded() const noexcept { return model != nullptr; }
     juce::String getLoadedName() const { return loadedName; }
+    juce::String getLastStatus() const { return lastStatus; }
 
     // Mono, in-place feldolgozás.
     void process (float* samples, int numSamples) noexcept
@@ -104,6 +114,7 @@ public:
 private:
     std::unique_ptr<nam::DSP> model;
     juce::String loadedName;
+    juce::String lastStatus { "nincs betöltési kísérlet" };
 
     double sampleRate   { 48000.0 };
     int    maxBlockSize { 512 };

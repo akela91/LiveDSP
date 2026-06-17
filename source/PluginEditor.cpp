@@ -7,7 +7,7 @@ GuitarDspEditor::GuitarDspEditor (GuitarDspProcessor& p)
 {
     const auto namName = processorRef.getNam().isLoaded()
                             ? processorRef.getNam().getLoadedName()
-                            : juce::String ("nincs modell");
+                            : juce::String ("nincs modell [") + processorRef.getNam().getLastStatus() + "]";
     const auto irName  = processorRef.getCab().isLoaded()
                             ? processorRef.getCab().getLoadedName()
                             : juce::String ("nincs IR");

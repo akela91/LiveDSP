@@ -4,7 +4,9 @@
 //==============================================================================
 GuitarDspProcessor::GuitarDspProcessor()
     : juce::AudioProcessor (BusesProperties()
-        .withInput  ("Input",  juce::AudioChannelSet::mono(),   true)
+        // Sztereó bemenet: a standalone az interfész 2 csatornáját adja
+        // (Input 1+2); a processBlock keveri monóba a gitár jelutat.
+        .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
         .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "PARAMS", createParameterLayout())
 {
@@ -188,13 +190,18 @@ void GuitarDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     juce::ScopedNoDenormals noDenormals;
     const int numSamples = buffer.getNumSamples();
     const int numOut     = buffer.getNumChannels();
+    const int numIn      = getTotalNumInputChannels();
 
     updateParametersFromApvts();
 
-    // --- Mono jelút felépítése (a 0. csatorna a gitár) -------------------
+    // --- Mono jelút felépítése --------------------------------------------
+    // Az összes elérhető bemeneti csatornát monóba keverjük (robusztus: mindegy,
+    // hogy a gitár az Input 1-en vagy 2-n van, és mono/sztereó bemenetnél is jó).
     monoBuffer.setSize (1, numSamples, false, false, true);
+    monoBuffer.clear();
     float* mono = monoBuffer.getWritePointer (0);
-    monoBuffer.copyFrom (0, 0, buffer, 0, 0, numSamples);
+    for (int ch = 0; ch < numIn; ++ch)
+        monoBuffer.addFrom (0, 0, buffer, ch, 0, numSamples);
 
     // 1) Input Gain
     inputGain.applyGain (mono, numSamples);

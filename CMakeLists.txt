@@ -142,7 +142,11 @@ endif()
 
 target_link_libraries(guitarDSP PRIVATE
     signalsmith-stretch
-    nam_core
+    # WHOLE_ARCHIVE: a NAM architektúrák file-scope statikus inicializálókkal
+    # regisztrálnak (pl. SlimmableContainer a container.cpp-ben). Statikus libnél
+    # az MSVC eldobná a nem hivatkozott objektumfájlokat -> a regisztráció
+    # elveszne. A teljes archívum linkelése megtartja mindet.
+    "$<LINK_LIBRARY:WHOLE_ARCHIVE,nam_core>"
     juce::juce_audio_utils
     juce::juce_dsp
     PUBLIC

@@ -38,12 +38,15 @@ public:
         infoLabel.setJustificationType (juce::Justification::centredLeft);
         infoLabel.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cTextDim));
         infoLabel.setFont (juce::Font (juce::FontOptions (11.0f)));
-        infoLabel.setText ("Élő ének — SM58 / Scarlett · brickwall limiter a clip ellen",
+        infoLabel.setText (juce::String::fromUTF8 ("Élő ének — SM58 / Scarlett · brickwall limiter a clip ellen"),
                            juce::dontSendNotification);
         addAndMakeVisible (infoLabel);
 
         auto& s = processorRef.apvts;
-        panels.add (new ModulePanel (s, "INPUT", {}, { { "vocGain", "GAIN" } }));
+        panels.add (new InputPanel (s, "vocGain", "GAIN",
+                                    processorRef.getTotalNumInputChannels(),
+                                    processorRef.getVocalInputCh(),
+                                    [this] (int ch) { processorRef.setVocalInputCh (ch); }));
         panels.add (new InfoPanel  ("LOW CUT", "90 Hz"));
         panels.add (new ModulePanel (s, "COMP", "vocCompOn",
                                      { { "vocCompThresh", "THRESH" }, { "vocCompRatio", "RATIO" } }));
@@ -58,8 +61,8 @@ public:
 
     ~VocalView() override { stopTimer(); }
 
-    int defaultWidth()  const override { return 740; }
-    int defaultHeight() const override { return 280; }
+    int defaultWidth()  const override { return 860; }
+    int defaultHeight() const override { return 330; }
 
     void paint (juce::Graphics& g) override
     {
@@ -84,13 +87,25 @@ public:
         infoLabel.setBounds (bottom);
         area.removeFromBottom (6);
 
-        // Egy panelsor a jelút sorrendjében.
-        int x = area.getX();
-        for (auto* pnl : panels)
+        // A panelek KITÖLTIK a teljes szélességet (preferált arányok szerint),
+        // de FIX, mértéktartó magasságúak (ne legyenek feleslegesen nyúlósak),
+        // függőlegesen középre igazítva az elérhető területen.
+        const int gap   = 10;
+        const int rowH  = juce::jmin (area.getHeight(), 220);
+        auto      row   = area.withSizeKeepingCentre (area.getWidth(), rowH);
+
+        int totalPref = 0;
+        for (auto* pnl : panels) totalPref += pnl->getPreferredWidth();
+        const int avail = row.getWidth() - gap * (panels.size() - 1);
+
+        int x = row.getX();
+        for (int i = 0; i < panels.size(); ++i)
         {
-            const int w = pnl->getPreferredWidth();
-            pnl->setBounds (x, area.getY(), w, area.getHeight());
-            x += w + 8;
+            const int w = (i == panels.size() - 1)
+                            ? (row.getRight() - x)
+                            : juce::roundToInt (avail * (panels[i]->getPreferredWidth() / (float) totalPref));
+            panels[i]->setBounds (x, row.getY(), w, rowH);
+            x += w + gap;
         }
     }
 
@@ -110,7 +125,7 @@ private:
     GuitarDspProcessor& processorRef;
 
     juce::Label      titleLabel;
-    juce::TextButton menuButton { "‹ MENÜ" };
+    juce::TextButton menuButton { juce::String::fromUTF8 ("‹ MENÜ") };
     juce::Label      latencyLabel;
     juce::Label      infoLabel;
 

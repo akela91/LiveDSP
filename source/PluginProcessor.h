@@ -71,6 +71,16 @@ public:
     int  getAppMode() const noexcept { return appMode.load(); }
     void setAppMode (int m) noexcept { appMode.store (m); }
 
+    //==============================================================================
+    // Bemeneti csatorna kiválasztása MÓDONKÉNT külön (a Scarlett több bemenete
+    // közül melyiket figyelje az adott lánc). 0-alapú index; a processBlock CSAK
+    // ezt az egy csatornát veszi (nem keveri össze a bemeneteket), így a mikrofon
+    // nem szivárog be a gitár láncba és fordítva. Perzisztálódik az állapotban.
+    int  getGuitarInputCh() const noexcept { return guitarInputCh.load(); }
+    int  getVocalInputCh()  const noexcept { return vocalInputCh.load(); }
+    void setGuitarInputCh (int ch) noexcept { guitarInputCh.store (juce::jmax (0, ch)); }
+    void setVocalInputCh  (int ch) noexcept { vocalInputCh.store  (juce::jmax (0, ch)); }
+
     // A jelenleg AKTÍV modulok által hozzáadott latencia (mintában) — dinamikus,
     // követi a kapcsolók állását (pl. pitch be/ki). Az élő kijelzőhöz.
     int getEffectiveLatencySamples() const noexcept;
@@ -90,7 +100,9 @@ private:
     void processVocal  (juce::AudioBuffer<float>& buffer) noexcept;
     void parameterChanged (const juce::String& parameterID, float newValue) override;
 
-    std::atomic<int> appMode { (int) AppMode::none };
+    std::atomic<int> appMode       { (int) AppMode::none };
+    std::atomic<int> guitarInputCh { 0 };
+    std::atomic<int> vocalInputCh  { 0 };
 
     //==============================================================================
     // DSP modulok — gitár jelút

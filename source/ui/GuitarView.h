@@ -45,7 +45,7 @@ private:
     juce::Label      statusLabel;
     juce::Label      latencyLabel;
     juce::TextButton tunerButton { "TUNER" };
-    juce::TextButton menuButton  { "‹ MENÜ" };
+    juce::TextButton menuButton  { juce::String::fromUTF8 ("‹ MENÜ") };
     TunerComponent   tuner;
 
     juce::OwnedArray<PanelBase> row1, row2;

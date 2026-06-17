@@ -330,13 +330,14 @@ void GuitarDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexce
     updateParametersFromApvts();
 
     // --- Mono jelút felépítése --------------------------------------------
-    // Az összes elérhető bemeneti csatornát monóba keverjük (robusztus: mindegy,
-    // hogy a gitár az Input 1-en vagy 2-n van, és mono/sztereó bemenetnél is jó).
+    // CSAK a kiválasztott bemeneti csatornát vesszük (nem keverünk össze minden
+    // bemenetet) — így a mikrofon nem szivárog be a gitár láncba.
+    const int gCh = juce::jlimit (0, juce::jmax (0, numIn - 1), guitarInputCh.load());
     monoBuffer.setSize (1, numSamples, false, false, true);
     monoBuffer.clear();
     float* mono = monoBuffer.getWritePointer (0);
-    for (int ch = 0; ch < numIn; ++ch)
-        monoBuffer.addFrom (0, 0, buffer, ch, 0, numSamples);
+    if (numIn > 0)
+        monoBuffer.copyFrom (0, 0, buffer, gCh, 0, numSamples);
 
     // Nyers (pre-gain) bemenet rögzítése a hangolóhoz.
     if (! tunerRing.empty())
@@ -433,13 +434,14 @@ void GuitarDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcep
 
     updateVocalFromApvts();
 
-    // Mono mikrofonjel: az összes bemeneti csatornát monóba keverjük (mindegy,
-    // hogy a mikrofon az Input 1-en vagy 2-n van), majd minden kimenetre másoljuk.
+    // Mono mikrofonjel: CSAK a kiválasztott bemeneti csatorna (a mic melyik
+    // Scarlett bemeneten van), majd minden kimenetre másoljuk.
+    const int vCh = juce::jlimit (0, juce::jmax (0, numIn - 1), vocalInputCh.load());
     monoBuffer.setSize (1, numSamples, false, false, true);
     monoBuffer.clear();
     float* mono = monoBuffer.getWritePointer (0);
-    for (int ch = 0; ch < numIn; ++ch)
-        monoBuffer.addFrom (0, 0, buffer, ch, 0, numSamples);
+    if (numIn > 0)
+        monoBuffer.copyFrom (0, 0, buffer, vCh, 0, numSamples);
 
     for (int ch = 0; ch < numOut; ++ch)
         buffer.copyFrom (ch, 0, mono, numSamples);
@@ -502,6 +504,9 @@ void GuitarDspProcessor::getStateInformation (juce::MemoryBlock& destData)
     if (auto state = apvts.copyState(); state.isValid())
     {
         std::unique_ptr<juce::XmlElement> xml (state.createXml());
+        // Bemeneti csatorna-választás módonként (nem APVTS-param, de perzisztens).
+        xml->setAttribute ("guitarInputCh", guitarInputCh.load());
+        xml->setAttribute ("vocalInputCh",  vocalInputCh.load());
         copyXmlToBinary (*xml, destData);
     }
 }
@@ -510,7 +515,11 @@ void GuitarDspProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         if (xml->hasTagName (apvts.state.getType()))
+        {
+            guitarInputCh.store (xml->getIntAttribute ("guitarInputCh", 0));
+            vocalInputCh.store  (xml->getIntAttribute ("vocalInputCh",  0));
             apvts.replaceState (juce::ValueTree::fromXml (*xml));
+        }
 }
 
 //==============================================================================

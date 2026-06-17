@@ -18,14 +18,14 @@ public:
     LandingView()
     {
         guitar.kind = ChoiceCard::Kind::guitar;
-        guitar.title = "GITÁR";
-        guitar.subtitle = "amp-szimulátor";
+        guitar.title = juce::String::fromUTF8 ("GITÁR");
+        guitar.subtitle = juce::String::fromUTF8 ("amp-szimulátor");
         guitar.onClick = [this] { if (onChoose) onChoose (1); };
         addAndMakeVisible (guitar);
 
         vocal.kind = ChoiceCard::Kind::vocal;
-        vocal.title = "ÉNEK";
-        vocal.subtitle = "mikrofon csatorna";
+        vocal.title = juce::String::fromUTF8 ("ÉNEK");
+        vocal.subtitle = juce::String::fromUTF8 ("mikrofon csatorna");
         vocal.onClick = [this] { if (onChoose) onChoose (2); };
         addAndMakeVisible (vocal);
     }
@@ -44,7 +44,8 @@ public:
 
         g.setColour (juce::Colour (GuitarLookAndFeel::cTextDim));
         g.setFont (juce::Font (juce::FontOptions (14.0f)));
-        g.drawText ("Válassz módot", getLocalBounds().removeFromTop (108).withTrimmedTop (62),
+        g.drawText (juce::String::fromUTF8 ("Válassz módot"),
+                    getLocalBounds().removeFromTop (108).withTrimmedTop (62),
                     juce::Justification::centred);
     }
 

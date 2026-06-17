@@ -213,9 +213,14 @@ public:
         r.reduce (8, 6);
         if (! knobs.isEmpty())
         {
-            const int w = r.getWidth() / knobs.size();
+            // A knob-blokkot KÖZÉPRE igazítjuk mindkét tengelyen, maximált
+            // mérettel — így a panel szélesítésekor sem úsznak szét a knobok.
+            const int kh = juce::jmin (r.getHeight(), 108);
+            const int kw = juce::jmin (r.getWidth(),  knobs.size() * knobWidth);
+            auto      row = r.withSizeKeepingCentre (kw, kh);
+            const int w   = row.getWidth() / knobs.size();
             for (auto* k : knobs)
-                k->setBounds (r.removeFromLeft (w).reduced (2));
+                k->setBounds (row.removeFromLeft (w).reduced (2));
         }
     }
 
@@ -227,6 +232,70 @@ private:
     Icon icon { Icon::none };
     std::unique_ptr<PowerButton> power;
     juce::OwnedArray<KnobControl> knobs;
+};
+
+//==============================================================================
+/** INPUT-panel: bemeneti csatorna-választó ComboBox + Gain knob. A csatorna-
+    választás a processzortól független (numChannels + currentCh + onChannel
+    callbacken át), így a Panels.h nem hivatkozik a processzorra. */
+class InputPanel : public PanelBase
+{
+public:
+    InputPanel (APVTS& state, const juce::String& gainParamId, const juce::String& gainLabel,
+                int numChannels, int currentCh, std::function<void (int)> onChannel)
+        : onChannelChange (std::move (onChannel))
+    {
+        channel.setColour (juce::ComboBox::backgroundColourId, juce::Colour (GuitarLookAndFeel::cPanelHead));
+        channel.setColour (juce::ComboBox::textColourId,       juce::Colour (GuitarLookAndFeel::cText));
+        channel.setColour (juce::ComboBox::arrowColourId,      juce::Colour (GuitarLookAndFeel::cAccent));
+        channel.setColour (juce::ComboBox::outlineColourId,    juce::Colours::transparentBlack);
+
+        const int n = juce::jmax (2, numChannels);   // legalább 2 elemet kínáljunk
+        for (int i = 0; i < n; ++i)
+            channel.addItem ("In " + juce::String (i + 1), i + 1);
+        channel.setSelectedId (juce::jlimit (0, n - 1, currentCh) + 1, juce::dontSendNotification);
+        channel.onChange = [this]
+        {
+            if (onChannelChange) onChannelChange (channel.getSelectedId() - 1);
+        };
+        addAndMakeVisible (channel);
+
+        gain = std::make_unique<KnobControl> (state, gainParamId, gainLabel);
+        addAndMakeVisible (*gain);
+    }
+
+    int getPreferredWidth() const override { return 104; }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto b = getLocalBounds().toFloat();
+        g.setColour (juce::Colour (GuitarLookAndFeel::cPanel));
+        g.fillRoundedRectangle (b, 8.0f);
+
+        auto header = b.removeFromTop (24.0f);
+        g.setColour (juce::Colour (GuitarLookAndFeel::cPanelHead));
+        g.fillRoundedRectangle (header, 8.0f);
+        g.fillRect (header.withTop (header.getCentreY()));
+        g.setColour (juce::Colour (GuitarLookAndFeel::cAccent));
+        g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
+        g.drawText ("INPUT", header.toNearestInt().reduced (10, 0), juce::Justification::centredLeft);
+    }
+
+    void resized() override
+    {
+        auto r = getLocalBounds();
+        r.removeFromTop (24);
+        r.reduce (8, 6);
+        channel.setBounds (r.removeFromTop (22));
+        r.removeFromTop (4);
+        const int kh = juce::jmin (r.getHeight(), 96);
+        gain->setBounds (r.withSizeKeepingCentre (r.getWidth(), kh));
+    }
+
+private:
+    juce::ComboBox channel;
+    std::unique_ptr<KnobControl> gain;
+    std::function<void (int)> onChannelChange;
 };
 
 //==============================================================================

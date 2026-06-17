@@ -22,7 +22,7 @@ GuitarView::GuitarView (GuitarDspProcessor& p)
     };
     addAndMakeVisible (modelSelector);
 
-    presetSelector.setTextWhenNothingSelected ("preset…");
+    presetSelector.setTextWhenNothingSelected (juce::String::fromUTF8 ("preset…"));
     populatePresetSelector();
     presetSelector.onChange = [this]
     {
@@ -81,8 +81,11 @@ GuitarView::~GuitarView()
 
 void GuitarView::buildPanels()
 {
-    // 1. sor — jelút eleje
-    row1.add (new ModulePanel (processorRef.apvts, "INPUT",  {},        { { "inputGain", "IN" } }));
+    // 1. sor — a jelút eleje: bemenet, dinamika, hangmagasság, drive, amp-fej.
+    row1.add (new InputPanel (processorRef.apvts, "inputGain", "IN",
+                              processorRef.getTotalNumInputChannels(),
+                              processorRef.getGuitarInputCh(),
+                              [this] (int ch) { processorRef.setGuitarInputCh (ch); }));
     row1.add (new ModulePanel (processorRef.apvts, "GATE",   "gateOn",  { { "gateThreshold", "THRESH" } }));
     row1.add (new PitchPanel (processorRef.apvts));
     row1.add (new ModulePanel (processorRef.apvts, "DRIVE",  "driveOn",
@@ -92,19 +95,19 @@ void GuitarView::buildPanels()
     ampPanel->setIcon (ModulePanel::Icon::amp);
     row1.add (ampPanel);
 
+    // 2. sor — a jelút vége: hangláda, EQ, idő-FX, kimenet (a természetes
+    // AMP|CAB töréspontnál tördelve, így mindkét sor kitöltött és kiegyensúlyozott).
     auto* cabPanel = new ModulePanel (processorRef.apvts, "CAB", "cabOn", {});
     cabPanel->setIcon (ModulePanel::Icon::cab);
-    row1.add (cabPanel);
+    row2.add (cabPanel);
 
-    row1.add (new ModulePanel (processorRef.apvts, "OUTPUT", {},        { { "outputGain", "OUT" } }));
-
-    // 2. sor — EQ + idő-FX
     row2.add (new EqPanel (processorRef.apvts,
                            { "65", "125", "250", "500", "1k", "2k", "4k", "8k", "16k" }));
     row2.add (new ModulePanel (processorRef.apvts, "DELAY",  "delayOn",
                                { { "delayTime", "TIME" }, { "delayFeedback", "FB" }, { "delayMix", "MIX" } }));
     row2.add (new ModulePanel (processorRef.apvts, "REVERB", "reverbOn",
                                { { "reverbAmount", "MIX" } }));
+    row2.add (new ModulePanel (processorRef.apvts, "OUTPUT", {},        { { "outputGain", "OUT" } }));
 
     for (auto* pnl : row1) addAndMakeVisible (pnl);
     for (auto* pnl : row2) addAndMakeVisible (pnl);
@@ -177,12 +180,25 @@ void GuitarView::paint (juce::Graphics& g)
 
 void GuitarView::layoutRow (juce::Rectangle<int> area, juce::OwnedArray<PanelBase>& panels)
 {
-    int x = area.getX();
+    if (panels.isEmpty())
+        return;
+
+    // A panelek arányosan KITÖLTIK a sor teljes szélességét (a preferált
+    // szélességek arányában), így nincs üres jobb oldal és nem zsúfolt.
+    const int gap = 8;
+    int totalPref = 0;
     for (auto* pnl : panels)
+        totalPref += pnl->getPreferredWidth();
+
+    const int avail = area.getWidth() - gap * (panels.size() - 1);
+    int x = area.getX();
+    for (int i = 0; i < panels.size(); ++i)
     {
-        const int w = pnl->getPreferredWidth();
-        pnl->setBounds (x, area.getY(), w, area.getHeight());
-        x += w + 8;
+        const int w = (i == panels.size() - 1)
+                        ? (area.getRight() - x)   // utolsó: a maradék (kerekítés-mentes)
+                        : juce::roundToInt (avail * (panels[i]->getPreferredWidth() / (float) totalPref));
+        panels[i]->setBounds (x, area.getY(), w, area.getHeight());
+        x += w + gap;
     }
 }
 

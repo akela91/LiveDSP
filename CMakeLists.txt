@@ -13,6 +13,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Statikus MSVC runtime nem szükséges; a JUCE standalone önállóan fut.
 if (MSVC)
     add_compile_options(/MP)        # többszálú fordítás
+    # A forrásfájlok UTF-8-ban vannak, és a futtatási (execution) charset is UTF-8
+    # legyen — különben az ékezetes string-literálok (pl. "Válassz módot") a
+    # rendszer-kódlapon (CP1252) torzulnak el a UI-ban. A JUCE a const char*
+    # literálokat UTF-8-ként értelmezi, így ez együtt helyes megjelenítést ad.
+    add_compile_options(/utf-8)
 endif()
 
 # ---------------------------------------------------------------------------

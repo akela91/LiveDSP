@@ -49,6 +49,22 @@ namespace livedsp
             && ! d.findChildFiles (juce::File::findFiles, true, wildcard).isEmpty();
     }
 
+    // True only when the running executable lives inside the source/build tree
+    // (i.e. an IDE/build-tree run), so the compile-time dev fallback applies.
+    // An INSTALLED exe (e.g. under Program Files) is NOT a child of the repo, so
+    // it behaves like a clean end-user machine and never uses the dev folders.
+    inline bool runningFromDevTree()
+    {
+       #if defined (LIVEDSP_DEFAULT_MODELS_DIR)
+        const juce::File devModels { juce::String::fromUTF8 (LIVEDSP_DEFAULT_MODELS_DIR) };
+        const auto repoRoot = devModels.getParentDirectory();   // <repo>
+        const auto exe = juce::File::getSpecialLocation (juce::File::currentExecutableFile);
+        return repoRoot.isDirectory() && exe.isAChildOf (repoRoot);
+       #else
+        return false;
+       #endif
+    }
+
     // Read location for models/IRs: prefer the user folder once it has content;
     // otherwise the dev fallback (if present); otherwise the (empty) user folder.
     // The user folder is always created as a side effect, so it is findable.
@@ -59,8 +75,9 @@ namespace livedsp
             return user;
 
        #if defined (LIVEDSP_DEFAULT_MODELS_DIR)
-        if (juce::File dev { juce::String::fromUTF8 (LIVEDSP_DEFAULT_MODELS_DIR) }; dev.isDirectory())
-            return dev;
+        if (runningFromDevTree())
+            if (juce::File dev { juce::String::fromUTF8 (LIVEDSP_DEFAULT_MODELS_DIR) }; dev.isDirectory())
+                return dev;
        #endif
 
         return user;
@@ -74,8 +91,9 @@ namespace livedsp
             return user;
 
        #if defined (LIVEDSP_FAVS_DIR)
-        if (juce::File dev { juce::String::fromUTF8 (LIVEDSP_FAVS_DIR) }; dev.isDirectory())
-            return dev;
+        if (runningFromDevTree())
+            if (juce::File dev { juce::String::fromUTF8 (LIVEDSP_FAVS_DIR) }; dev.isDirectory())
+                return dev;
        #endif
 
         return user;

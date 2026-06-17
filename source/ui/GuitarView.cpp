@@ -1,12 +1,12 @@
 #include "GuitarView.h"
 
-GuitarView::GuitarView (GuitarDspProcessor& p)
+GuitarView::GuitarView (LiveDspProcessor& p)
     : processorRef (p),
       tuner (p)
 {
-    titleLabel.setText ("guitarDSP", juce::dontSendNotification);
+    titleLabel.setText ("GuitarDSP", juce::dontSendNotification);
     titleLabel.setFont (juce::Font (juce::FontOptions (19.0f, juce::Font::bold)));
-    titleLabel.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cAccent));
+    titleLabel.setColour (juce::Label::textColourId, juce::Colour (LiveLookAndFeel::cAccent));
     addAndMakeVisible (titleLabel);
 
     presetSelector.setTextWhenNothingSelected (juce::String::fromUTF8 ("preset…"));
@@ -24,24 +24,24 @@ GuitarView::GuitarView (GuitarDspProcessor& p)
     addAndMakeVisible (presetSelector);
 
     statusLabel.setJustificationType (juce::Justification::centredLeft);
-    statusLabel.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cTextDim));
+    statusLabel.setColour (juce::Label::textColourId, juce::Colour (LiveLookAndFeel::cTextDim));
     statusLabel.setFont (juce::Font (juce::FontOptions (11.0f)));
     addAndMakeVisible (statusLabel);
 
     latencyLabel.setJustificationType (juce::Justification::centredRight);
-    latencyLabel.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cAccent));
+    latencyLabel.setColour (juce::Label::textColourId, juce::Colour (LiveLookAndFeel::cAccent));
     latencyLabel.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
     addAndMakeVisible (latencyLabel);
 
-    menuButton.setColour (juce::TextButton::buttonColourId,  juce::Colour (GuitarLookAndFeel::cPanelHead));
-    menuButton.setColour (juce::TextButton::textColourOffId, juce::Colour (GuitarLookAndFeel::cText));
+    menuButton.setColour (juce::TextButton::buttonColourId,  juce::Colour (LiveLookAndFeel::cPanelHead));
+    menuButton.setColour (juce::TextButton::textColourOffId, juce::Colour (LiveLookAndFeel::cText));
     menuButton.onClick = [this] { if (onBackToMenu) onBackToMenu(); };
     addAndMakeVisible (menuButton);
 
     tunerButton.setClickingTogglesState (true);
-    tunerButton.setColour (juce::TextButton::buttonColourId,   juce::Colour (GuitarLookAndFeel::cPanelHead));
-    tunerButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (GuitarLookAndFeel::cAccent));
-    tunerButton.setColour (juce::TextButton::textColourOffId,  juce::Colour (GuitarLookAndFeel::cText));
+    tunerButton.setColour (juce::TextButton::buttonColourId,   juce::Colour (LiveLookAndFeel::cPanelHead));
+    tunerButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (LiveLookAndFeel::cAccent));
+    tunerButton.setColour (juce::TextButton::textColourOffId,  juce::Colour (LiveLookAndFeel::cText));
     tunerButton.setColour (juce::TextButton::textColourOnId,   juce::Colours::black);
     tunerButton.onClick = [this]
     {
@@ -211,8 +211,8 @@ void GuitarView::timerCallback()
 
 void GuitarView::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (GuitarLookAndFeel::cBackground));
-    g.setColour (juce::Colour (GuitarLookAndFeel::cPanelHead));
+    g.fillAll (juce::Colour (LiveLookAndFeel::cBackground));
+    g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
     g.fillRect (0, 46, getWidth(), 1);
 }
 

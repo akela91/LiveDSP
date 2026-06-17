@@ -3,23 +3,23 @@
 #include <JuceHeader.h>
 #include "../PluginProcessor.h"
 #include "../TunerComponent.h"
-#include "GuitarLookAndFeel.h"
+#include "LiveLookAndFeel.h"
 #include "Panels.h"
 #include "AppView.h"
 
 /**
-    Gitár nézet: a teljes guitarDSP amp-szimulátor UI (felső sáv cím + modell-
+    Gitár nézet: a teljes GuitarDSP amp-szimulátor UI (felső sáv cím + modell-
     és preset-választó + tuner + "menü" gomb, moduláris panelek a jelút
     sorrendjében, 9-sávos EQ, élő latencia-kijelző).
 
-    Korábban ez maga a GuitarDspEditor volt; mostantól egy AppView, amelyet a
+    Korábban ez maga a LiveDspEditor volt; mostantól egy AppView, amelyet a
     shell-szerkesztő gitár módban mutat.
 */
 class GuitarView : public AppView,
                    private juce::Timer
 {
 public:
-    explicit GuitarView (GuitarDspProcessor& p);
+    explicit GuitarView (LiveDspProcessor& p);
     ~GuitarView() override;
 
     int  defaultWidth()   const override { return baseW; }
@@ -38,7 +38,7 @@ private:
     void layoutRow (juce::Rectangle<int> area, juce::OwnedArray<PanelBase>& panels);
     void timerCallback() override;
 
-    GuitarDspProcessor& processorRef;
+    LiveDspProcessor& processorRef;
 
     juce::Label      titleLabel;
     juce::ComboBox   presetSelector;

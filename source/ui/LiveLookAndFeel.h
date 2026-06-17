@@ -3,10 +3,10 @@
 #include <JuceHeader.h>
 
 /**
-    Modern, sötét LookAndFeel a guitarDSP-hez (Neural DSP-stílus inspiráció).
+    Modern, sötét LookAndFeel a GuitarDSP-hez (Neural DSP-stílus inspiráció).
     Meleg borostyán akcentus, sötét panelek, ívelt értékjelzős rotary knob-ok.
 */
-class GuitarLookAndFeel : public juce::LookAndFeel_V4
+class LiveLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     // Színpaletta
@@ -19,7 +19,7 @@ public:
     static constexpr juce::uint32 cTextDim     = 0xff8a8a93;
     static constexpr juce::uint32 cTrack       = 0xff34343e;
 
-    GuitarLookAndFeel()
+    LiveLookAndFeel()
     {
         setColour (juce::ResizableWindow::backgroundColourId, juce::Colour (cBackground));
         setColour (juce::Slider::textBoxTextColourId,        juce::Colour (cText));

@@ -4,7 +4,7 @@
 
 /**
     Közös bázis az app-nézetekhez (Landing / Guitar / Vocal). A shell-szerkesztő
-    (GuitarDspEditor) egyszerre egy AppView-t mutat, a kiválasztott app-mód
+    (LiveDspEditor) egyszerre egy AppView-t mutat, a kiválasztott app-mód
     szerint. A nézet a teljes ablakot kitölti.
 */
 struct AppView : juce::Component

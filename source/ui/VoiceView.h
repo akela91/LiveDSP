@@ -2,41 +2,41 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "GuitarLookAndFeel.h"
+#include "LiveLookAndFeel.h"
 #include "Panels.h"
 #include "AppView.h"
 
 /**
-    Ének (Vocal) nézet: a guitarDSP stílusú moduláris panelsor az ének jelúthoz.
+    Ének (Vocal) nézet: a GuitarDSP stílusú moduláris panelsor az ének jelúthoz.
     Felső sáv: cím + "menü" gomb (vissza a Landing képernyőre) + latencia-kijelző.
 
     Panelek (a jelút sorrendjében):
       INPUT (Gain) · LOW CUT (90 Hz, fix) · COMP (thresh/ratio) ·
       AIR (6 kHz shelf) · REVERB (mix) · LIMITER (-0.1 dB, fix)
 */
-class VocalView : public AppView,
+class VoiceView : public AppView,
                   private juce::Timer
 {
 public:
-    explicit VocalView (GuitarDspProcessor& p) : processorRef (p)
+    explicit VoiceView (LiveDspProcessor& p) : processorRef (p)
     {
         titleLabel.setText ("VoiceDSP", juce::dontSendNotification);
         titleLabel.setFont (juce::Font (juce::FontOptions (19.0f, juce::Font::bold)));
-        titleLabel.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cAccent));
+        titleLabel.setColour (juce::Label::textColourId, juce::Colour (LiveLookAndFeel::cAccent));
         addAndMakeVisible (titleLabel);
 
-        menuButton.setColour (juce::TextButton::buttonColourId,  juce::Colour (GuitarLookAndFeel::cPanelHead));
-        menuButton.setColour (juce::TextButton::textColourOffId, juce::Colour (GuitarLookAndFeel::cText));
+        menuButton.setColour (juce::TextButton::buttonColourId,  juce::Colour (LiveLookAndFeel::cPanelHead));
+        menuButton.setColour (juce::TextButton::textColourOffId, juce::Colour (LiveLookAndFeel::cText));
         menuButton.onClick = [this] { if (onBackToMenu) onBackToMenu(); };
         addAndMakeVisible (menuButton);
 
         latencyLabel.setJustificationType (juce::Justification::centredRight);
-        latencyLabel.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cAccent));
+        latencyLabel.setColour (juce::Label::textColourId, juce::Colour (LiveLookAndFeel::cAccent));
         latencyLabel.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
         addAndMakeVisible (latencyLabel);
 
         infoLabel.setJustificationType (juce::Justification::centredLeft);
-        infoLabel.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cTextDim));
+        infoLabel.setColour (juce::Label::textColourId, juce::Colour (LiveLookAndFeel::cTextDim));
         infoLabel.setFont (juce::Font (juce::FontOptions (11.0f)));
         infoLabel.setText (juce::String::fromUTF8 ("Élő ének — SM58 / Scarlett · brickwall limiter a clip ellen"),
                            juce::dontSendNotification);
@@ -74,15 +74,15 @@ public:
         startTimerHz (12);
     }
 
-    ~VocalView() override { stopTimer(); }
+    ~VoiceView() override { stopTimer(); }
 
     int defaultWidth()  const override { return 820; }
     int defaultHeight() const override { return 440; }
 
     void paint (juce::Graphics& g) override
     {
-        g.fillAll (juce::Colour (GuitarLookAndFeel::cBackground));
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanelHead));
+        g.fillAll (juce::Colour (LiveLookAndFeel::cBackground));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
         g.fillRect (0, 46, getWidth(), 1);
     }
 
@@ -150,7 +150,7 @@ private:
             compPanel->setLedLevel (processorRef.getVocalCompReduction());
     }
 
-    GuitarDspProcessor& processorRef;
+    LiveDspProcessor& processorRef;
 
     juce::Label      titleLabel;
     juce::TextButton menuButton { juce::String::fromUTF8 ("‹ MENÜ") };
@@ -161,5 +161,5 @@ private:
     ModulePanel* gatePanel { nullptr };
     ModulePanel* compPanel { nullptr };
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VocalView)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VoiceView)
 };

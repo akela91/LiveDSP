@@ -2,7 +2,7 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-GuitarDspProcessor::GuitarDspProcessor()
+LiveDspProcessor::LiveDspProcessor()
     : juce::AudioProcessor (BusesProperties()
         // Sztereó bemenet: a standalone az interfész 2 csatornáját adja
         // (Input 1+2); a processBlock keveri monóba a gitár jelutat.
@@ -85,7 +85,7 @@ GuitarDspProcessor::GuitarDspProcessor()
 }
 
 //==============================================================================
-juce::AudioProcessorValueTreeState::ParameterLayout GuitarDspProcessor::createParameterLayout()
+juce::AudioProcessorValueTreeState::ParameterLayout LiveDspProcessor::createParameterLayout()
 {
     using namespace juce;
     AudioProcessorValueTreeState::ParameterLayout layout;
@@ -211,7 +211,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarDspProcessor::createPa
 }
 
 //==============================================================================
-void GuitarDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void LiveDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
     currentBlockSize  = samplesPerBlock;
@@ -254,7 +254,7 @@ void GuitarDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     setLatencySamples (pitchShifter.getLatencySamples());
 }
 
-bool GuitarDspProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool LiveDspProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     // Mono vagy sztereó bemenet, sztereó kimenet.
     const auto& out = layouts.getMainOutputChannelSet();
@@ -267,7 +267,7 @@ bool GuitarDspProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
 }
 
 //==============================================================================
-void GuitarDspProcessor::updateParametersFromApvts() noexcept
+void LiveDspProcessor::updateParametersFromApvts() noexcept
 {
     inputGain.setTargetValue  (juce::Decibels::decibelsToGain (pInputGain->load()));
     outputGain.setTargetValue (juce::Decibels::decibelsToGain (pOutputGain->load()));
@@ -305,7 +305,7 @@ void GuitarDspProcessor::updateParametersFromApvts() noexcept
     reverb.setParameters (reverbParams);
 }
 
-void GuitarDspProcessor::parameterChanged (const juce::String& parameterID, float newValue)
+void LiveDspProcessor::parameterChanged (const juce::String& parameterID, float newValue)
 {
     // Standalone UI-ból üzenetszálon hívódik -> biztonságos újrakonfigurálni.
     if (parameterID == "pitchLatency")
@@ -328,7 +328,7 @@ void GuitarDspProcessor::parameterChanged (const juce::String& parameterID, floa
     }
 }
 
-void GuitarDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,
+void LiveDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                        juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -345,7 +345,7 @@ void GuitarDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 }
 
-void GuitarDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexcept
+void LiveDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexcept
 {
     const int numSamples = buffer.getNumSamples();
     const int numOut     = buffer.getNumChannels();
@@ -437,7 +437,7 @@ void GuitarDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexce
 }
 
 //==============================================================================
-void GuitarDspProcessor::updateVocalFromApvts() noexcept
+void LiveDspProcessor::updateVocalFromApvts() noexcept
 {
     vocal.setInputGainDb   (pVocGain->load());
     vocal.setGateThreshold (pVocGateThresh->load());
@@ -457,7 +457,7 @@ void GuitarDspProcessor::updateVocalFromApvts() noexcept
     vocal.setReverbEnabled (pVocReverbOn->load() > 0.5f);
 }
 
-void GuitarDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
+void LiveDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
 {
     const int numSamples = buffer.getNumSamples();
     const int numOut     = buffer.getNumChannels();
@@ -483,7 +483,7 @@ void GuitarDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcep
 }
 
 //==============================================================================
-int GuitarDspProcessor::getEffectiveLatencySamples() const noexcept
+int LiveDspProcessor::getEffectiveLatencySamples() const noexcept
 {
     // Az ének lánc végig nulla-latenciás (IIR/comp/reverb/limiter).
     if ((AppMode) appMode.load() != AppMode::guitar)
@@ -502,7 +502,7 @@ int GuitarDspProcessor::getEffectiveLatencySamples() const noexcept
 }
 
 //==============================================================================
-void GuitarDspProcessor::copyRecentInput (float* dest, int numToCopy) const noexcept
+void LiveDspProcessor::copyRecentInput (float* dest, int numToCopy) const noexcept
 {
     if (tunerRing.empty() || numToCopy <= 0)
     {
@@ -525,12 +525,12 @@ void GuitarDspProcessor::copyRecentInput (float* dest, int numToCopy) const noex
 }
 
 //==============================================================================
-juce::AudioProcessorEditor* GuitarDspProcessor::createEditor()
+juce::AudioProcessorEditor* LiveDspProcessor::createEditor()
 {
-    return new GuitarDspEditor (*this);
+    return new LiveDspEditor (*this);
 }
 
-void GuitarDspProcessor::getStateInformation (juce::MemoryBlock& destData)
+void LiveDspProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     if (auto state = apvts.copyState(); state.isValid())
     {
@@ -542,7 +542,7 @@ void GuitarDspProcessor::getStateInformation (juce::MemoryBlock& destData)
     }
 }
 
-void GuitarDspProcessor::setStateInformation (const void* data, int sizeInBytes)
+void LiveDspProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         if (xml->hasTagName (apvts.state.getType()))
@@ -557,5 +557,5 @@ void GuitarDspProcessor::setStateInformation (const void* data, int sizeInBytes)
 // A standalone/plugin belépési pontja.
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new GuitarDspProcessor();
+    return new LiveDspProcessor();
 }

@@ -2,7 +2,7 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "ui/GuitarLookAndFeel.h"
+#include "ui/LiveLookAndFeel.h"
 #include "ui/AppView.h"
 
 /**
@@ -10,11 +10,11 @@
     szerint EGY AppView-t mutat (Landing / Guitar / Vocal). A nézet a teljes
     ablakot kitölti; módváltáskor az ablak átméreteződik a nézet igénye szerint.
 */
-class GuitarDspEditor  : public juce::AudioProcessorEditor
+class LiveDspEditor  : public juce::AudioProcessorEditor
 {
 public:
-    explicit GuitarDspEditor (GuitarDspProcessor& p);
-    ~GuitarDspEditor() override;
+    explicit LiveDspEditor (LiveDspProcessor& p);
+    ~LiveDspEditor() override;
 
     void resized() override;
     void paint (juce::Graphics&) override;
@@ -22,9 +22,9 @@ public:
 private:
     void showMode (int mode);
 
-    GuitarDspProcessor&        processorRef;
-    GuitarLookAndFeel          lnf;
+    LiveDspProcessor&        processorRef;
+    LiveLookAndFeel          lnf;
     std::unique_ptr<AppView>   view;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarDspEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LiveDspEditor)
 };

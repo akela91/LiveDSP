@@ -25,7 +25,7 @@
     A prepare/reset ÜZENETSZÁLRÓL hívandó; a setterek a process előtt (a hang-
     szálon) futnak, ezért egyszerű (nem-atomikus) tagok elegendők.
 */
-class VocalChain
+class VoiceChain
 {
 public:
     void prepare (const juce::dsp::ProcessSpec& spec)

@@ -1,9 +1,9 @@
 #include "PluginEditor.h"
 #include "ui/LandingView.h"
 #include "ui/GuitarView.h"
-#include "ui/VocalView.h"
+#include "ui/VoiceView.h"
 
-GuitarDspEditor::GuitarDspEditor (GuitarDspProcessor& p)
+LiveDspEditor::LiveDspEditor (LiveDspProcessor& p)
     : juce::AudioProcessorEditor (&p),
       processorRef (p)
 {
@@ -11,15 +11,15 @@ GuitarDspEditor::GuitarDspEditor (GuitarDspProcessor& p)
     showMode (processorRef.getAppMode());
 }
 
-GuitarDspEditor::~GuitarDspEditor()
+LiveDspEditor::~LiveDspEditor()
 {
     view.reset();
     setLookAndFeel (nullptr);
 }
 
-void GuitarDspEditor::showMode (int mode)
+void LiveDspEditor::showMode (int mode)
 {
-    using AppMode = GuitarDspProcessor::AppMode;
+    using AppMode = LiveDspProcessor::AppMode;
 
     // A befoglaló (standalone) ablak "kerete" = ablak − szerkesztő (címsor + opciók
     // sáv). Konstans a nézetek között; még a régi, konzisztens állapotból mérjük,
@@ -40,7 +40,7 @@ void GuitarDspEditor::showMode (int mode)
     }
     else if (mode == (int) AppMode::vocal)
     {
-        view = std::make_unique<VocalView> (processorRef);
+        view = std::make_unique<VoiceView> (processorRef);
     }
     else
     {
@@ -86,12 +86,12 @@ void GuitarDspEditor::showMode (int mode)
     }
 }
 
-void GuitarDspEditor::paint (juce::Graphics& g)
+void LiveDspEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (GuitarLookAndFeel::cBackground));
+    g.fillAll (juce::Colour (LiveLookAndFeel::cBackground));
 }
 
-void GuitarDspEditor::resized()
+void LiveDspEditor::resized()
 {
     if (view != nullptr)
         view->setBounds (getLocalBounds());

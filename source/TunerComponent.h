@@ -17,7 +17,7 @@ class TunerComponent : public juce::Component,
                        private juce::Timer
 {
 public:
-    explicit TunerComponent (GuitarDspProcessor& p) : processorRef (p)
+    explicit TunerComponent (LiveDspProcessor& p) : processorRef (p)
     {
         snapshot.resize ((size_t) snapshotSize, 0.0f);
         detector.setRange (40.0f, 1000.0f);
@@ -139,7 +139,7 @@ private:
         return juce::String (names[idx]) + juce::String (octave);
     }
 
-    GuitarDspProcessor& processorRef;
+    LiveDspProcessor& processorRef;
     PitchDetector detector;
 
     static constexpr int snapshotSize = 4096;

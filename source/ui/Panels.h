@@ -2,7 +2,7 @@
 
 #include <JuceHeader.h>
 #include <vector>
-#include "GuitarLookAndFeel.h"
+#include "LiveLookAndFeel.h"
 
 using APVTS = juce::AudioProcessorValueTreeState;
 
@@ -26,7 +26,7 @@ public:
 
         label.setText (labelText, juce::dontSendNotification);
         label.setJustificationType (juce::Justification::centred);
-        label.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cTextDim));
+        label.setColour (juce::Label::textColourId, juce::Colour (LiveLookAndFeel::cTextDim));
         label.setFont (juce::Font (juce::FontOptions (11.0f)));
         addAndMakeVisible (label);
 
@@ -60,7 +60,7 @@ public:
 
         label.setText (labelText, juce::dontSendNotification);
         label.setJustificationType (juce::Justification::centred);
-        label.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cTextDim));
+        label.setColour (juce::Label::textColourId, juce::Colour (LiveLookAndFeel::cTextDim));
         label.setFont (juce::Font (juce::FontOptions (9.5f)));
         addAndMakeVisible (label);
 
@@ -98,8 +98,8 @@ public:
         const auto c = b.getCentre();
         const bool on = getToggleState();
 
-        const auto col = on ? juce::Colour (GuitarLookAndFeel::cAccent)
-                            : juce::Colour (GuitarLookAndFeel::cTextDim);
+        const auto col = on ? juce::Colour (LiveLookAndFeel::cAccent)
+                            : juce::Colour (LiveLookAndFeel::cTextDim);
         g.setColour (col);
         g.drawEllipse (c.x - r + 1.5f, c.y - r + 1.5f, (r - 1.5f) * 2.0f, (r - 1.5f) * 2.0f, 1.6f);
         // power ikon: függőleges vonal felül
@@ -158,15 +158,15 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanel));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
         g.fillRoundedRectangle (b, 8.0f);
 
         auto header = b.removeFromTop (headerH);
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanelHead));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
         g.fillRoundedRectangle (header, 8.0f);
         g.fillRect (header.withTop (header.getCentreY()));
 
-        g.setColour (juce::Colour (GuitarLookAndFeel::cAccent));
+        g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         auto textArea = header.toNearestInt().reduced (10, 0);
         if (power != nullptr) textArea.removeFromRight (headerH);
@@ -181,7 +181,7 @@ public:
             if (power != nullptr) hb.removeFromRight (headerH);
             auto dot = hb.removeFromRight (16).withSizeKeepingCentre (9, 9).toFloat();
             const auto lit = juce::Colour (0xffe0653a);   // meleg narancs = némítás
-            g.setColour (juce::Colour (GuitarLookAndFeel::cTrack));
+            g.setColour (juce::Colour (LiveLookAndFeel::cTrack));
             g.fillEllipse (dot);
             if (closed > 0.05f)
             {
@@ -198,8 +198,8 @@ public:
 
     void drawIcon (juce::Graphics& g, juce::Rectangle<float> area)
     {
-        const auto accent = juce::Colour (GuitarLookAndFeel::cAccent);
-        const auto dim    = juce::Colour (GuitarLookAndFeel::cTextDim);
+        const auto accent = juce::Colour (LiveLookAndFeel::cAccent);
+        const auto dim    = juce::Colour (LiveLookAndFeel::cTextDim);
         auto box = area.withSizeKeepingCentre (juce::jmin (area.getWidth(), 84.0f),
                                                juce::jmin (area.getHeight(), 70.0f));
 
@@ -284,9 +284,9 @@ public:
             addAndMakeVisible (*power);
         }
 
-        combo.setColour (juce::ComboBox::backgroundColourId, juce::Colour (GuitarLookAndFeel::cPanelHead));
-        combo.setColour (juce::ComboBox::textColourId,       juce::Colour (GuitarLookAndFeel::cText));
-        combo.setColour (juce::ComboBox::arrowColourId,      juce::Colour (GuitarLookAndFeel::cAccent));
+        combo.setColour (juce::ComboBox::backgroundColourId, juce::Colour (LiveLookAndFeel::cPanelHead));
+        combo.setColour (juce::ComboBox::textColourId,       juce::Colour (LiveLookAndFeel::cText));
+        combo.setColour (juce::ComboBox::arrowColourId,      juce::Colour (LiveLookAndFeel::cAccent));
         combo.setColour (juce::ComboBox::outlineColourId,    juce::Colours::transparentBlack);
         addAndMakeVisible (combo);
     }
@@ -298,14 +298,14 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanel));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
         g.fillRoundedRectangle (b, 8.0f);
 
         auto header = b.removeFromTop (24.0f);
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanelHead));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
         g.fillRoundedRectangle (header, 8.0f);
         g.fillRect (header.withTop (header.getCentreY()));
-        g.setColour (juce::Colour (GuitarLookAndFeel::cAccent));
+        g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         auto textArea = header.toNearestInt().reduced (10, 0);
         if (power != nullptr) textArea.removeFromRight (24);
@@ -330,8 +330,8 @@ public:
 private:
     void drawIcon (juce::Graphics& g, juce::Rectangle<float> area)
     {
-        const auto accent = juce::Colour (GuitarLookAndFeel::cAccent);
-        const auto dim    = juce::Colour (GuitarLookAndFeel::cTextDim);
+        const auto accent = juce::Colour (LiveLookAndFeel::cAccent);
+        const auto dim    = juce::Colour (LiveLookAndFeel::cTextDim);
         auto box = area.withSizeKeepingCentre (juce::jmin (area.getWidth(), 92.0f),
                                                juce::jmin (area.getHeight(), 64.0f));
         if (box.getHeight() < 18.0f) return;
@@ -381,9 +381,9 @@ public:
                 int numChannels, int currentCh, std::function<void (int)> onChannel)
         : onChannelChange (std::move (onChannel))
     {
-        channel.setColour (juce::ComboBox::backgroundColourId, juce::Colour (GuitarLookAndFeel::cPanelHead));
-        channel.setColour (juce::ComboBox::textColourId,       juce::Colour (GuitarLookAndFeel::cText));
-        channel.setColour (juce::ComboBox::arrowColourId,      juce::Colour (GuitarLookAndFeel::cAccent));
+        channel.setColour (juce::ComboBox::backgroundColourId, juce::Colour (LiveLookAndFeel::cPanelHead));
+        channel.setColour (juce::ComboBox::textColourId,       juce::Colour (LiveLookAndFeel::cText));
+        channel.setColour (juce::ComboBox::arrowColourId,      juce::Colour (LiveLookAndFeel::cAccent));
         channel.setColour (juce::ComboBox::outlineColourId,    juce::Colours::transparentBlack);
 
         const int n = juce::jmax (2, numChannels);   // legalább 2 elemet kínáljunk
@@ -405,14 +405,14 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanel));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
         g.fillRoundedRectangle (b, 8.0f);
 
         auto header = b.removeFromTop (24.0f);
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanelHead));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
         g.fillRoundedRectangle (header, 8.0f);
         g.fillRect (header.withTop (header.getCentreY()));
-        g.setColour (juce::Colour (GuitarLookAndFeel::cAccent));
+        g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         g.drawText ("INPUT", header.toNearestInt().reduced (10, 0), juce::Justification::centredLeft);
     }
@@ -451,9 +451,9 @@ public:
 
         auto styleCombo = [] (juce::ComboBox& c)
         {
-            c.setColour (juce::ComboBox::backgroundColourId, juce::Colour (GuitarLookAndFeel::cPanelHead));
-            c.setColour (juce::ComboBox::textColourId,       juce::Colour (GuitarLookAndFeel::cText));
-            c.setColour (juce::ComboBox::arrowColourId,      juce::Colour (GuitarLookAndFeel::cAccent));
+            c.setColour (juce::ComboBox::backgroundColourId, juce::Colour (LiveLookAndFeel::cPanelHead));
+            c.setColour (juce::ComboBox::textColourId,       juce::Colour (LiveLookAndFeel::cText));
+            c.setColour (juce::ComboBox::arrowColourId,      juce::Colour (LiveLookAndFeel::cAccent));
             c.setColour (juce::ComboBox::outlineColourId,    juce::Colours::transparentBlack);
         };
 
@@ -477,15 +477,15 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanel));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
         g.fillRoundedRectangle (b, 8.0f);
 
         auto header = b.removeFromTop (24.0f);
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanelHead));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
         g.fillRoundedRectangle (header, 8.0f);
         g.fillRect (header.withTop (header.getCentreY()));
 
-        g.setColour (juce::Colour (GuitarLookAndFeel::cAccent));
+        g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         g.drawText ("PITCH", header.toNearestInt().reduced (10, 0).withTrimmedRight (24),
                     juce::Justification::centredLeft);
@@ -536,23 +536,23 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanel));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
         g.fillRoundedRectangle (b, 8.0f);
 
         auto header = b.removeFromTop (24.0f);
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanelHead));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
         g.fillRoundedRectangle (header, 8.0f);
         g.fillRect (header.withTop (header.getCentreY()));
-        g.setColour (juce::Colour (GuitarLookAndFeel::cAccent));
+        g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         g.drawText (title, header.toNearestInt().reduced (10, 0), juce::Justification::centredLeft);
 
         // FIX érték a panel közepén.
-        g.setColour (juce::Colour (GuitarLookAndFeel::cText));
+        g.setColour (juce::Colour (LiveLookAndFeel::cText));
         g.setFont (juce::Font (juce::FontOptions (17.0f, juce::Font::bold)));
         g.drawText (value, getLocalBounds().withTrimmedTop (24), juce::Justification::centred);
 
-        g.setColour (juce::Colour (GuitarLookAndFeel::cTextDim));
+        g.setColour (juce::Colour (LiveLookAndFeel::cTextDim));
         g.setFont (juce::Font (juce::FontOptions (10.0f)));
         g.drawText ("fixed", getLocalBounds().withTrimmedTop (24).removeFromBottom (18),
                     juce::Justification::centred);
@@ -586,14 +586,14 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanel));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
         g.fillRoundedRectangle (b, 8.0f);
 
         auto header = b.removeFromTop (24.0f);
-        g.setColour (juce::Colour (GuitarLookAndFeel::cPanelHead));
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
         g.fillRoundedRectangle (header, 8.0f);
         g.fillRect (header.withTop (header.getCentreY()));
-        g.setColour (juce::Colour (GuitarLookAndFeel::cAccent));
+        g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         g.drawText ("EQUALIZER", header.toNearestInt().reduced (10, 0).withTrimmedRight (24),
                     juce::Justification::centredLeft);
@@ -607,9 +607,9 @@ public:
         {
             const float t = 1.0f - (float) (dB + 15) / 30.0f;       // 0=tető, 1=alja
             const float y = travel.getY() + t * travel.getHeight();
-            g.setColour (juce::Colour (GuitarLookAndFeel::cTrack).withAlpha (dB == 0 ? 0.9f : 0.4f));
+            g.setColour (juce::Colour (LiveLookAndFeel::cTrack).withAlpha (dB == 0 ? 0.9f : 0.4f));
             g.drawLine ((float) body.getX(), y, (float) body.getRight(), y, dB == 0 ? 1.2f : 0.8f);
-            g.setColour (juce::Colour (GuitarLookAndFeel::cTextDim));
+            g.setColour (juce::Colour (LiveLookAndFeel::cTextDim));
             g.drawText ((dB > 0 ? "+" : "") + juce::String (dB),
                         2, (int) y - 7, scaleW - 2, 14, juce::Justification::centredRight);
         }

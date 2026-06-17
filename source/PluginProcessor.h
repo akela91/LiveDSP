@@ -8,10 +8,10 @@
 #include "dsp/NamProcessor.h"
 #include "dsp/CabConvolver.h"
 #include "dsp/Equalizer.h"
-#include "dsp/VocalChain.h"
+#include "dsp/VoiceChain.h"
 
 /**
-    guitarDSP — kétmódú standalone audio app: GITÁR amp-szimulátor + ÉNEK
+    GuitarDSP — kétmódú standalone audio app: GITÁR amp-szimulátor + ÉNEK
     csatorna. A futás közben váltható 'appMode' dönti el, melyik jelút fut.
     Az induló képernyő (Landing) választatja ki a módot (0 = nincs választva).
 
@@ -19,15 +19,15 @@
       In -> [InputGain] -> [Gate] -> [Pitch] -> [Overdrive] -> [NAM]
          -> (mono->stereo) -> [Cab IR] -> [EQ] -> [Delay] -> [Reverb] -> [OutputGain] -> Out
 
-    Ének jelút (mono mikrofon -> sztereó, VocalChain ProcessorChain):
+    Ének jelút (mono mikrofon -> sztereó, VoiceChain ProcessorChain):
       In -> [Gain] -> [LowCut 90Hz] -> [Comp] -> [Air 6kHz] -> [Reverb] -> [Limiter] -> Out
 */
-class GuitarDspProcessor  : public juce::AudioProcessor,
+class LiveDspProcessor  : public juce::AudioProcessor,
                             private juce::AudioProcessorValueTreeState::Listener
 {
 public:
-    GuitarDspProcessor();
-    ~GuitarDspProcessor() override = default;
+    LiveDspProcessor();
+    ~LiveDspProcessor() override = default;
 
     //==============================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -119,7 +119,7 @@ private:
     Equalizer     eq;
 
     // DSP modul — ének jelút
-    VocalChain    vocal;
+    VoiceChain    vocal;
 
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLine { 96000 };
     juce::dsp::Reverb reverb;
@@ -184,5 +184,5 @@ private:
     std::atomic<float>* pVocReverbOn   { nullptr };
     std::atomic<float>* pVocReverbMix  { nullptr };
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarDspProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LiveDspProcessor)
 };

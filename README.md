@@ -1,23 +1,64 @@
 # guitarDSP
 
-Standalone Windows gitár amp-szimulátor suite (JUCE 8), Neural DSP / Fortin
-stílusú jelúttal. **Fázis 1: CMake-felállás + DSP-architektúra váz.**
+Standalone, alacsony latenciás Windows audio alkalmazás (JUCE 8), Neural DSP /
+Fortin stílusú UI-val. **Kétmódú app egyetlen `.exe`-ben:** induláskor egy
+landing képernyő választatja ki a **GITÁR** (amp-szimulátor) vagy az **ÉNEK**
+(élő mikrofon csatorna) módot. A két mód külön panel-elrendezést és külön DSP
+jelutat kap; a közös téma, knob/panel elemek és a hangoló újrahasznosulnak.
 
-## Jelút
+> Nem plugin és nem játszik zenei alapot — kizárólag a bemenő jelet dolgozza fel
+> és küldi a kimenetre, live monitorozáshoz (Focusrite Scarlett + ASIO).
 
+## Módok és jelutak
+
+A bemenetnél **módonként külön kiválasztható**, hogy a Scarlett melyik bemeneti
+csatornáját figyelje (a választás megmarad), így a mikrofon és a gitár nem
+keveredik össze.
+
+### Gitár mód
 ```
-In → Input Gain → Noise Gate → Transpose (pitch) → Overdrive
-   → Amp (NAM) → Cab IR (bypassolható) → Delay → Reverb → Output Gain → Out
+In → Input Gain → Noise Gate → Pitch (Transpose) → Overdrive
+   → Amp (NAM) → Cab IR → EQ → Delay → Reverb → Output Gain → Out
 ```
+A NAM-ig mono a jelút, utána sztereó. A NAM modell és a Cab IR közvetlenül az
+**AMP** és **CAB** panel legördülőjéből választható; a **GATE** panelen egy LED
+jelzi, amikor a zajzár némít. 9-sávos grafikus EQ, élő latencia-kijelző,
+vizuális hangoló (tuner), preset-választó.
 
-A NAM-ig mono a jelút; utána sztereóvá szélesedik (IR/Delay/Reverb).
+**Pitch motorok** (a PITCH panel motorválasztójából): Signalsmith Stretch,
+RubberBand Stretcher (R3 „Finer"), és **RubberBand LiveShifter (v4)** — ez az
+alapértelmezett, a legkisebb latenciára. Cél: −4 félhang power chordokra jó
+minőségben, minimális késleltetéssel.
+
+### Ének mód (vokál csatorna)
+`juce::dsp::ProcessorChain`, szigorúan ebben a sorrendben:
+```
+In → Input Gain → Low-Cut (90 Hz) → Noise Gate → Warmth (tanh)
+   → Compressor → High-Shelf "Air" (6 kHz) → Delay → Reverb → Brickwall Limiter → Out
+```
+| Modul | Vezérlő | Fix beállítás |
+|---|---|---|
+| Input Gain | GAIN 0…+24 dB | — |
+| Low-Cut | — | 90 Hz high-pass |
+| Noise Gate | GATE −80…−20 dB | ratio 10:1, attack 2 ms, release 150 ms |
+| Warmth | WARMTH 1.0…3.0 | szinttartó tanh-szaturáció (WaveShaper) |
+| Compressor | THRESH −40…0 dB, RATIO 1:1…10:1 | attack 5 ms, release 100 ms |
+| High-Shelf „Air" | AIR 0…+12 dB | 6 kHz |
+| Delay | TIME 50…500 ms, MIX 0…50% | feedback 0.3 |
+| Reverb | MIX 0…100% | közepes hall (room/damp) |
+| Limiter | — | −0.1 dB ceiling (clip-védelem) |
+
+A teljes ének lánc **nulla-latenciás**; a beállítások (összes vokál paraméter)
+megmaradnak az állapotban. A COMP/AIR/REVERB és az új GATE/WARMTH/DELAY modulok
+külön be/kikapcsolhatók.
 
 ## Függőségek
 
 A CMake `FetchContent`-tel automatikusan letölti:
 - **JUCE 8.0.4**
 - **Signalsmith Stretch** (pitch shifter, MIT)
-- **NeuralAmpModelerCore** (+ Eigen, nlohmann/json almodulként)
+- **RubberBand Library v4.0.0** (Stretcher + LiveShifter, egyfájlos build)
+- **NeuralAmpModelerCore** (+ Eigen, nlohmann/json)
 
 Kézzel beszerzendő (licenc miatt):
 - **Steinberg ASIO SDK** — https://www.steinberg.net/developers/
@@ -44,25 +85,30 @@ cmake --build build --config Release
 A standalone alkalmazás:
 `build/guitarDSP_artefacts/Release/Standalone/guitarDSP.exe`
 
+> Megjegyzés: a forrásfájlok UTF-8 kódolásúak; az MSVC `/utf-8` kapcsolóval fordul
+> (az ékezetes feliratok `juce::String::fromUTF8(...)`-on keresztül jelennek meg).
+
 ## Modellek / IR
 
 A `models/` mappa tartalma indításkor automatikusan elérhető (az első `.nam`
-modell betöltődik fejlesztői kényelemből).
+modell betöltődik). A mappa **git-ignorált** (lokális, kereskedelmi captúrák).
 
-> A jelenlegi NAM modellek **"Full Rig"** típusúak (tartalmazzák a hangládát),
+> A jelenlegi NAM modellek **„Full Rig"** típusúak (tartalmazzák a hangládát),
 > ezért a **Cab IR alapból KI van kapcsolva** (nincs dupla cab). Külön IR-t csak
-> "amp-only" (preamp/DI) NAM modellhez kapcsolj be.
+> „amp-only" (preamp/DI) NAM modellhez kapcsolj be.
 
 ## Tesztelés
 
-1. Indítsd a standalone `.exe`-t.
-2. Audio Settings → válaszd a Focusrite **ASIO** drivert, állíts alacsony puffert (64/128).
-3. A GenericAudioProcessorEditor csúszkáin minden paraméter elérhető (UI későbbi fázis).
-4. Játssz: a NAM amp szól; kapcsold be a Pitch-et (-2/-5 félhang), az Overdrive-ot, a Delay/Reverb-öt.
+1. Indítsd a standalone `.exe`-t, a landing képernyőn válassz **GITÁR** vagy **ÉNEK** módot.
+2. Audio Settings (Options) → válaszd a Focusrite **ASIO** drivert, állíts alacsony puffert (64/128).
+3. Az INPUT panelen állítsd be a megfelelő bemeneti csatornát (gitár / mikrofon külön).
+4. A „‹ MENÜ" gombbal bármikor visszaléphetsz és módot válthatsz.
 
-## Roadmap
+## Architektúra (röviden)
 
-- **Fázis 1 (kész):** CMake + jelút váz, NAM + IR betöltés, tesztelhető hang.
-- **Fázis 2:** DSP modulok finomhangolása (gate timing, OD hangzás, pitch minőség/latencia, NAM resampling).
-- **Fázis 3:** Teljes APVTS + preset mentés/betöltés + modell/IR fájltallózó.
-- **Fázis 4:** Egyedi UI.
+- `GuitarDspProcessor` (egy `juce::AudioProcessor`): mindkét DSP láncot tartalmazza,
+  futás közben váltható `appMode` (none/guitar/vocal) irányítja a `processBlock`-ot.
+- `GuitarDspEditor`: vékony shell, ami a mód szerint egy `AppView`-t mutat
+  (`LandingView` / `GuitarView` / `VocalView`).
+- DSP modulok: `source/dsp/` (NoiseGate, Overdrive, PitchShifter, NamProcessor,
+  CabConvolver, Equalizer, VocalChain). UI: `source/ui/` (közös LookAndFeel + panelek).

@@ -60,6 +60,7 @@ public:
     bool loadCabIr    (const juce::File& irFile)  { return cab.loadIR (irFile); }
     NamProcessor& getNam()       { return nam; }
     CabConvolver& getCab()       { return cab; }
+    NoiseGate&    getGate()      { return gate; }
 
     int getCurrentBlockSize() const noexcept { return currentBlockSize; }
 
@@ -164,11 +165,18 @@ private:
 
     // Ének paraméter-pointerek
     std::atomic<float>* pVocGain       { nullptr };
+    std::atomic<float>* pVocGateOn     { nullptr };
+    std::atomic<float>* pVocGateThresh { nullptr };
+    std::atomic<float>* pVocWarmthOn   { nullptr };
+    std::atomic<float>* pVocWarmth     { nullptr };
     std::atomic<float>* pVocCompOn     { nullptr };
     std::atomic<float>* pVocCompThresh { nullptr };
     std::atomic<float>* pVocCompRatio  { nullptr };
     std::atomic<float>* pVocAirOn      { nullptr };
     std::atomic<float>* pVocAir        { nullptr };
+    std::atomic<float>* pVocDelayOn    { nullptr };
+    std::atomic<float>* pVocDelayTime  { nullptr };
+    std::atomic<float>* pVocDelayMix   { nullptr };
     std::atomic<float>* pVocReverbOn   { nullptr };
     std::atomic<float>* pVocReverbMix  { nullptr };
 

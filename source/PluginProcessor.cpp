@@ -36,11 +36,18 @@ GuitarDspProcessor::GuitarDspProcessor()
         pEqBands[(size_t) i] = apvts.getRawParameterValue ("eqBand" + juce::String (i));
 
     pVocGain       = apvts.getRawParameterValue ("vocGain");
+    pVocGateOn     = apvts.getRawParameterValue ("vocGateOn");
+    pVocGateThresh = apvts.getRawParameterValue ("vocGateThresh");
+    pVocWarmthOn   = apvts.getRawParameterValue ("vocWarmthOn");
+    pVocWarmth     = apvts.getRawParameterValue ("vocWarmth");
     pVocCompOn     = apvts.getRawParameterValue ("vocCompOn");
     pVocCompThresh = apvts.getRawParameterValue ("vocCompThresh");
     pVocCompRatio  = apvts.getRawParameterValue ("vocCompRatio");
     pVocAirOn      = apvts.getRawParameterValue ("vocAirOn");
     pVocAir        = apvts.getRawParameterValue ("vocAir");
+    pVocDelayOn    = apvts.getRawParameterValue ("vocDelayOn");
+    pVocDelayTime  = apvts.getRawParameterValue ("vocDelayTime");
+    pVocDelayMix   = apvts.getRawParameterValue ("vocDelayMix");
     pVocReverbOn   = apvts.getRawParameterValue ("vocReverbOn");
     pVocReverbMix  = apvts.getRawParameterValue ("vocReverbMix");
 
@@ -166,6 +173,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarDspProcessor::createPa
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocGain", 1 },
         "Vocal Gain", NormalisableRange<float> { 0.0f, 24.0f, 0.1f }, 6.0f));
 
+    // Noise Gate a low-cut után (ratio 10:1 / attack 2 ms / release 150 ms FIX).
+    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocGateOn", 1 }, "Vocal Gate On", true));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocGateThresh", 1 },
+        "Vocal Gate", NormalisableRange<float> { -80.0f, -20.0f, 0.1f }, -55.0f));
+
+    // Warmth / Saturation (tanh WaveShaper); WARMTH = drive 1.0..3.0 (finom).
+    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocWarmthOn", 1 }, "Vocal Warmth On", true));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocWarmth", 1 },
+        "Vocal Warmth", NormalisableRange<float> { 1.0f, 3.0f, 0.01f }, 1.2f));
+
     // Compressor (Attack 5 ms / Release 100 ms FIX a motorban).
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocCompOn", 1 }, "Vocal Comp On", true));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocCompThresh", 1 },
@@ -177,6 +194,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarDspProcessor::createPa
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocAirOn", 1 }, "Vocal Air On", true));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocAir", 1 },
         "Vocal Air", NormalisableRange<float> { 0.0f, 12.0f, 0.1f }, 3.0f));
+
+    // Delay (feedback 0.3 FIX); TIME 50..500 ms, MIX 0..50%.
+    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocDelayOn", 1 }, "Vocal Delay On", true));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocDelayTime", 1 },
+        "Vocal Delay Time", NormalisableRange<float> { 50.0f, 500.0f, 1.0f }, 200.0f));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocDelayMix", 1 },
+        "Vocal Delay Mix", NormalisableRange<float> { 0.0f, 50.0f, 1.0f }, 12.0f));
 
     // Reverb Wet/Dry mix (0..100%); room/damp FIX a motorban.
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocReverbOn", 1 }, "Vocal Reverb On", true));
@@ -415,14 +439,21 @@ void GuitarDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexce
 //==============================================================================
 void GuitarDspProcessor::updateVocalFromApvts() noexcept
 {
-    vocal.setInputGainDb  (pVocGain->load());
+    vocal.setInputGainDb   (pVocGain->load());
+    vocal.setGateThreshold (pVocGateThresh->load());
+    vocal.setWarmth        (pVocWarmth->load());
     vocal.setCompThreshold (pVocCompThresh->load());
     vocal.setCompRatio     (pVocCompRatio->load());
     vocal.setAirDb         (pVocAir->load());
+    vocal.setDelayTimeMs   (pVocDelayTime->load());
+    vocal.setDelayMix      (pVocDelayMix->load() * 0.01f);    // % -> 0..0.5
     vocal.setReverbMix     (pVocReverbMix->load() * 0.01f);   // % -> 0..1
 
+    vocal.setGateEnabled   (pVocGateOn->load()   > 0.5f);
+    vocal.setWarmthEnabled (pVocWarmthOn->load() > 0.5f);
     vocal.setCompEnabled   (pVocCompOn->load()   > 0.5f);
     vocal.setAirEnabled    (pVocAirOn->load()    > 0.5f);
+    vocal.setDelayEnabled  (pVocDelayOn->load()  > 0.5f);
     vocal.setReverbEnabled (pVocReverbOn->load() > 0.5f);
 }
 

@@ -39,6 +39,11 @@ public:
     void setRelease (float releaseMs) noexcept { releaseTimeMs = releaseMs; updateCoefficients(); }
     void setEnabled (bool shouldBeEnabled) noexcept { enabled = shouldBeEnabled; }
 
+    // A kapu aktuális gain-je (0 = teljesen zárva/némít, 1 = nyitva) — a UI
+    // LED-jelzéshez (üzenetszálról olvasandó, atomikusan). Ha a kapu ki van
+    // kapcsolva, 1.0-t ad (nincs némítás).
+    float getCurrentGain() const noexcept { return enabled ? currentGain.load() : 1.0f; }
+
     // Mono, in-place feldolgozás.
     void process (float* samples, int numSamples) noexcept
     {
@@ -68,6 +73,8 @@ public:
 
             samples[i] = in * gain;
         }
+
+        currentGain.store (gain);   // blokk végi állapot a UI LED-hez
     }
 
 private:
@@ -95,4 +102,6 @@ private:
 
     float envelope { 0.0f };
     float gain     { 0.0f };
+
+    std::atomic<float> currentGain { 1.0f };   // UI LED-hez (blokk végi gain)
 };

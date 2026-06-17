@@ -139,6 +139,14 @@ public:
 
     void setIcon (Icon i) { icon = i; repaint(); }
 
+    // Kapu-LED: a fejlécben egy kis jelző, ami KIGYULLAD, amikor a kapu zár
+    // (némít). A 'gateGain' 0 = teljesen zárva, 1 = nyitva.
+    void enableGateLed (bool b) { hasLed = b; }
+    void setGateGain (float g)
+    {
+        if (std::abs (g - ledGain) > 0.02f) { ledGain = g; repaint(); }
+    }
+
     int getPreferredWidth() const override
     {
         if (icon != Icon::none && knobs.isEmpty())
@@ -161,7 +169,27 @@ public:
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         auto textArea = header.toNearestInt().reduced (10, 0);
         if (power != nullptr) textArea.removeFromRight (headerH);
+        if (hasLed)          textArea.removeFromRight (16);
         g.drawText (title, textArea, juce::Justification::centredLeft);
+
+        if (hasLed)
+        {
+            // A LED a power gomb mellett balra. Zárásnál (ledGain kicsi) kigyullad.
+            const float closed = juce::jlimit (0.0f, 1.0f, 1.0f - ledGain);
+            auto hb = header.toNearestInt();
+            if (power != nullptr) hb.removeFromRight (headerH);
+            auto dot = hb.removeFromRight (16).withSizeKeepingCentre (9, 9).toFloat();
+            const auto lit = juce::Colour (0xffe0653a);   // meleg narancs = némítás
+            g.setColour (juce::Colour (GuitarLookAndFeel::cTrack));
+            g.fillEllipse (dot);
+            if (closed > 0.05f)
+            {
+                g.setColour (lit.withAlpha (closed));
+                g.fillEllipse (dot);
+                g.setColour (lit.withAlpha (0.25f * closed));
+                g.fillEllipse (dot.expanded (3.0f));      // halo
+            }
+        }
 
         if (icon != Icon::none && knobs.isEmpty())
             drawIcon (g, getLocalBounds().withTrimmedTop (headerH).reduced (14).toFloat());
@@ -230,8 +258,115 @@ private:
 
     juce::String title;
     Icon icon { Icon::none };
+    bool  hasLed  { false };
+    float ledGain { 1.0f };
     std::unique_ptr<PowerButton> power;
     juce::OwnedArray<KnobControl> knobs;
+};
+
+//==============================================================================
+/** Választós panel (AMP / CAB): fejléc (cím + power) + egy ComboBox (modell/IR
+    választó) + alatta a modul ikonja. A combót a befoglaló nézet tölti fel
+    (getCombo()), így a fájl-logika ott marad. */
+class ComboPanel : public PanelBase
+{
+public:
+    enum class Icon { amp, cab };
+
+    ComboPanel (APVTS& state, juce::String titleText, juce::String toggleId,
+                Icon iconType, int widthPx = 200)
+        : title (std::move (titleText)), icon (iconType), width (widthPx)
+    {
+        if (toggleId.isNotEmpty())
+        {
+            power = std::make_unique<PowerButton> (state, toggleId);
+            addAndMakeVisible (*power);
+        }
+
+        combo.setColour (juce::ComboBox::backgroundColourId, juce::Colour (GuitarLookAndFeel::cPanelHead));
+        combo.setColour (juce::ComboBox::textColourId,       juce::Colour (GuitarLookAndFeel::cText));
+        combo.setColour (juce::ComboBox::arrowColourId,      juce::Colour (GuitarLookAndFeel::cAccent));
+        combo.setColour (juce::ComboBox::outlineColourId,    juce::Colours::transparentBlack);
+        addAndMakeVisible (combo);
+    }
+
+    juce::ComboBox& getCombo() noexcept { return combo; }
+
+    int getPreferredWidth() const override { return width; }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto b = getLocalBounds().toFloat();
+        g.setColour (juce::Colour (GuitarLookAndFeel::cPanel));
+        g.fillRoundedRectangle (b, 8.0f);
+
+        auto header = b.removeFromTop (24.0f);
+        g.setColour (juce::Colour (GuitarLookAndFeel::cPanelHead));
+        g.fillRoundedRectangle (header, 8.0f);
+        g.fillRect (header.withTop (header.getCentreY()));
+        g.setColour (juce::Colour (GuitarLookAndFeel::cAccent));
+        g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
+        auto textArea = header.toNearestInt().reduced (10, 0);
+        if (power != nullptr) textArea.removeFromRight (24);
+        g.drawText (title, textArea, juce::Justification::centredLeft);
+
+        // Ikon a combó alatti területen.
+        auto iconArea = getLocalBounds().withTrimmedTop (24 + 30).reduced (14, 8).toFloat();
+        drawIcon (g, iconArea);
+    }
+
+    void resized() override
+    {
+        auto r = getLocalBounds();
+        auto header = r.removeFromTop (24);
+        if (power != nullptr)
+            power->setBounds (header.removeFromRight (24).reduced (4));
+
+        r.reduce (8, 6);
+        combo.setBounds (r.removeFromTop (24));
+    }
+
+private:
+    void drawIcon (juce::Graphics& g, juce::Rectangle<float> area)
+    {
+        const auto accent = juce::Colour (GuitarLookAndFeel::cAccent);
+        const auto dim    = juce::Colour (GuitarLookAndFeel::cTextDim);
+        auto box = area.withSizeKeepingCentre (juce::jmin (area.getWidth(), 92.0f),
+                                               juce::jmin (area.getHeight(), 64.0f));
+        if (box.getHeight() < 18.0f) return;
+
+        if (icon == Icon::amp)
+        {
+            g.setColour (dim);
+            g.drawRoundedRectangle (box, 6.0f, 2.0f);
+            auto grille = box.reduced (10.0f).withTrimmedTop (12.0f);
+            g.setColour (accent.withAlpha (0.85f));
+            for (float gx = grille.getX() + 3.0f; gx < grille.getRight(); gx += 6.0f)
+                g.drawLine (gx, grille.getY(), gx, grille.getBottom(), 1.2f);
+            for (int k = 0; k < 3; ++k)
+            {
+                g.setColour (accent);
+                g.fillEllipse (box.getX() + 12.0f + k * 14.0f, box.getY() + 5.0f, 5.0f, 5.0f);
+            }
+        }
+        else // cab
+        {
+            g.setColour (dim);
+            g.drawRoundedRectangle (box, 6.0f, 2.0f);
+            const auto c = box.getCentre();
+            const float rr = juce::jmin (box.getWidth(), box.getHeight()) * 0.36f;
+            g.setColour (accent.withAlpha (0.8f));
+            g.drawEllipse (c.x - rr, c.y - rr, rr * 2.0f, rr * 2.0f, 2.0f);
+            g.setColour (accent);
+            g.fillEllipse (c.x - rr * 0.45f, c.y - rr * 0.45f, rr * 0.9f, rr * 0.9f);
+        }
+    }
+
+    juce::String title;
+    Icon icon;
+    int width;
+    std::unique_ptr<PowerButton> power;
+    juce::ComboBox combo;
 };
 
 //==============================================================================
@@ -336,7 +471,7 @@ public:
         qualityAtt = std::make_unique<APVTS::ComboBoxAttachment> (state, "pitchLiveQuality", quality);
     }
 
-    int getPreferredWidth() const override { return 176; }
+    int getPreferredWidth() const override { return 200; }
 
     void paint (juce::Graphics& g) override
     {
@@ -363,9 +498,10 @@ public:
 
         r.reduce (8, 6);
 
-        // Alsó sor: motorválasztó (bal) + RB Live minőség (jobb, 'Q:').
+        // Alsó sor: motorválasztó (bal) + RB Live minőség (jobb). A minőség-combo
+        // szélesebb, hogy a "Fast"/"Fine" felirat ne vágódjon le.
         auto bottom = r.removeFromBottom (20);
-        quality.setBounds (bottom.removeFromRight (54));
+        quality.setBounds (bottom.removeFromRight (juce::jmin (76, bottom.getWidth() / 2)));
         bottom.removeFromRight (4);
         engine.setBounds (bottom);
         r.removeFromBottom (4);

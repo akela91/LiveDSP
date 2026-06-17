@@ -9,21 +9,7 @@ GuitarView::GuitarView (GuitarDspProcessor& p)
     titleLabel.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cAccent));
     addAndMakeVisible (titleLabel);
 
-    modelSelector.setTextWhenNothingSelected ("nincs modell");
-    populateModelSelector();
-    modelSelector.onChange = [this]
-    {
-        const int idx = modelSelector.getSelectedId() - 1;
-        if (idx >= 0 && idx < modelFiles.size())
-        {
-            processorRef.loadNamModel (modelFiles[idx]);   // szálbiztos csere
-            updateStatusLabel();
-        }
-    };
-    addAndMakeVisible (modelSelector);
-
     presetSelector.setTextWhenNothingSelected (juce::String::fromUTF8 ("preset…"));
-    populatePresetSelector();
     presetSelector.onChange = [this]
     {
         const int idx = presetSelector.getSelectedId() - 1;
@@ -41,7 +27,6 @@ GuitarView::GuitarView (GuitarDspProcessor& p)
     statusLabel.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cTextDim));
     statusLabel.setFont (juce::Font (juce::FontOptions (11.0f)));
     addAndMakeVisible (statusLabel);
-    updateStatusLabel();
 
     latencyLabel.setJustificationType (juce::Justification::centredRight);
     latencyLabel.setColour (juce::Label::textColourId, juce::Colour (GuitarLookAndFeel::cAccent));
@@ -70,6 +55,10 @@ GuitarView::GuitarView (GuitarDspProcessor& p)
     addChildComponent (tuner);
 
     buildPanels();
+    populateAmpModels();
+    populateCabIrs();
+    populatePresetSelector();
+    updateStatusLabel();
 
     startTimerHz (12);
 }
@@ -81,24 +70,25 @@ GuitarView::~GuitarView()
 
 void GuitarView::buildPanels()
 {
-    // 1. sor — a jelút eleje: bemenet, dinamika, hangmagasság, drive, amp-fej.
+    // 1. sor — a jelút eleje: bemenet, kapu (LED-del), hangmagasság, drive, amp.
     row1.add (new InputPanel (processorRef.apvts, "inputGain", "IN",
                               processorRef.getTotalNumInputChannels(),
                               processorRef.getGuitarInputCh(),
                               [this] (int ch) { processorRef.setGuitarInputCh (ch); }));
-    row1.add (new ModulePanel (processorRef.apvts, "GATE",   "gateOn",  { { "gateThreshold", "THRESH" } }));
+
+    gatePanel = new ModulePanel (processorRef.apvts, "GATE", "gateOn", { { "gateThreshold", "THRESH" } });
+    gatePanel->enableGateLed (true);
+    row1.add (gatePanel);
+
     row1.add (new PitchPanel (processorRef.apvts));
     row1.add (new ModulePanel (processorRef.apvts, "DRIVE",  "driveOn",
                                { { "driveAmount", "DRIVE" }, { "driveTone", "TONE" }, { "driveLevel", "LEVEL" } }));
 
-    auto* ampPanel = new ModulePanel (processorRef.apvts, "AMP", "namOn", {});
-    ampPanel->setIcon (ModulePanel::Icon::amp);
+    ampPanel = new ComboPanel (processorRef.apvts, "AMP", "namOn", ComboPanel::Icon::amp);
     row1.add (ampPanel);
 
-    // 2. sor — a jelút vége: hangláda, EQ, idő-FX, kimenet (a természetes
-    // AMP|CAB töréspontnál tördelve, így mindkét sor kitöltött és kiegyensúlyozott).
-    auto* cabPanel = new ModulePanel (processorRef.apvts, "CAB", "cabOn", {});
-    cabPanel->setIcon (ModulePanel::Icon::cab);
+    // 2. sor — a jelút vége: hangláda (IR választóval), EQ, idő-FX, kimenet.
+    cabPanel = new ComboPanel (processorRef.apvts, "CAB", "cabOn", ComboPanel::Icon::cab);
     row2.add (cabPanel);
 
     row2.add (new EqPanel (processorRef.apvts,
@@ -113,8 +103,11 @@ void GuitarView::buildPanels()
     for (auto* pnl : row2) addAndMakeVisible (pnl);
 }
 
-void GuitarView::populateModelSelector()
+void GuitarView::populateAmpModels()
 {
+    if (ampPanel == nullptr) return;
+    auto& combo = ampPanel->getCombo();
+
    #if defined (GUITARDSP_DEFAULT_MODELS_DIR)
     juce::File dir { GUITARDSP_DEFAULT_MODELS_DIR };
     if (dir.isDirectory())
@@ -123,12 +116,53 @@ void GuitarView::populateModelSelector()
 
     int id = 1;
     for (const auto& f : modelFiles)
-        modelSelector.addItem (f.getFileNameWithoutExtension(), id++);
+        combo.addItem (f.getFileNameWithoutExtension(), id++);
 
     const auto loaded = processorRef.getNam().getLoadedName();
     for (int i = 0; i < modelFiles.size(); ++i)
         if (modelFiles[i].getFileNameWithoutExtension() == loaded)
-            modelSelector.setSelectedId (i + 1, juce::dontSendNotification);
+            combo.setSelectedId (i + 1, juce::dontSendNotification);
+
+    combo.onChange = [this]
+    {
+        const int idx = ampPanel->getCombo().getSelectedId() - 1;
+        if (idx >= 0 && idx < modelFiles.size())
+        {
+            processorRef.loadNamModel (modelFiles[idx]);   // szálbiztos csere
+            updateStatusLabel();
+        }
+    };
+}
+
+void GuitarView::populateCabIrs()
+{
+    if (cabPanel == nullptr) return;
+    auto& combo = cabPanel->getCombo();
+
+   #if defined (GUITARDSP_DEFAULT_MODELS_DIR)
+    juce::File dir { GUITARDSP_DEFAULT_MODELS_DIR };
+    if (dir.isDirectory())
+        irFiles = dir.findChildFiles (juce::File::findFiles, true, "*.wav");
+   #endif
+
+    int id = 1;
+    for (const auto& f : irFiles)
+        combo.addItem (f.getFileNameWithoutExtension(), id++);
+
+    const auto loaded = processorRef.getCab().getLoadedName();
+    for (int i = 0; i < irFiles.size(); ++i)
+        if (irFiles[i].getFileNameWithoutExtension() == loaded)
+            combo.setSelectedId (i + 1, juce::dontSendNotification);
+
+    combo.onChange = [this]
+    {
+        const int idx = cabPanel->getCombo().getSelectedId() - 1;
+        if (idx >= 0 && idx < irFiles.size())
+        {
+            processorRef.loadCabIr (irFiles[idx]);
+            updateStatusLabel();
+        }
+    };
 }
 
 void GuitarView::populatePresetSelector()
@@ -169,6 +203,10 @@ void GuitarView::timerCallback()
         latencyLabel.setText ("Latency ~ " + juce::String (samples / sr * 1000.0, 1) + " ms",
                               juce::dontSendNotification);
     }
+
+    // Kapu-LED frissítése (kigyullad, amikor a kapu némít).
+    if (gatePanel != nullptr)
+        gatePanel->setGateGain (processorRef.getGate().getCurrentGain());
 }
 
 void GuitarView::paint (juce::Graphics& g)
@@ -183,8 +221,7 @@ void GuitarView::layoutRow (juce::Rectangle<int> area, juce::OwnedArray<PanelBas
     if (panels.isEmpty())
         return;
 
-    // A panelek arányosan KITÖLTIK a sor teljes szélességét (a preferált
-    // szélességek arányában), így nincs üres jobb oldal és nem zsúfolt.
+    // A panelek arányosan KITÖLTIK a sor teljes szélességét.
     const int gap = 8;
     int totalPref = 0;
     for (auto* pnl : panels)
@@ -195,7 +232,7 @@ void GuitarView::layoutRow (juce::Rectangle<int> area, juce::OwnedArray<PanelBas
     for (int i = 0; i < panels.size(); ++i)
     {
         const int w = (i == panels.size() - 1)
-                        ? (area.getRight() - x)   // utolsó: a maradék (kerekítés-mentes)
+                        ? (area.getRight() - x)
                         : juce::roundToInt (avail * (panels[i]->getPreferredWidth() / (float) totalPref));
         panels[i]->setBounds (x, area.getY(), w, area.getHeight());
         x += w + gap;
@@ -206,15 +243,15 @@ void GuitarView::resized()
 {
     auto area = getLocalBounds().reduced (12);
 
+    // Felső sáv: cím balra; preset + MENÜ + TUNER jobbra (a modellválasztó már
+    // az AMP panelbe került, így a sáv kevésbé zsúfolt).
     auto top = area.removeFromTop (32);
+    titleLabel.setBounds (top.removeFromLeft (120));
     tunerButton.setBounds (top.removeFromRight (84).reduced (0, 2));
     top.removeFromRight (8);
     menuButton.setBounds (top.removeFromRight (72).reduced (0, 2));
     top.removeFromRight (8);
-    presetSelector.setBounds (top.removeFromRight (150).reduced (0, 2));
-    top.removeFromRight (8);
-    titleLabel.setBounds (top.removeFromLeft (108));
-    modelSelector.setBounds (top.reduced (4, 2));
+    presetSelector.setBounds (top.removeFromRight (170).reduced (0, 2));
 
     area.removeFromTop (12);
 

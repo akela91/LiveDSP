@@ -30,17 +30,17 @@ public:
     void paint (juce::Graphics&) override;
 
 private:
-    void populateModelSelector();
+    void buildPanels();
+    void populateAmpModels();
+    void populateCabIrs();
     void populatePresetSelector();
     void updateStatusLabel();
-    void buildPanels();
     void layoutRow (juce::Rectangle<int> area, juce::OwnedArray<PanelBase>& panels);
     void timerCallback() override;
 
     GuitarDspProcessor& processorRef;
 
     juce::Label      titleLabel;
-    juce::ComboBox   modelSelector;
     juce::ComboBox   presetSelector;
     juce::Label      statusLabel;
     juce::Label      latencyLabel;
@@ -50,7 +50,13 @@ private:
 
     juce::OwnedArray<PanelBase> row1, row2;
 
+    // A modell/IR választó combók ezekben a panelekben élnek (a fájl-logika itt).
+    ComboPanel*  ampPanel  { nullptr };
+    ComboPanel*  cabPanel  { nullptr };
+    ModulePanel* gatePanel { nullptr };
+
     juce::Array<juce::File> modelFiles;
+    juce::Array<juce::File> irFiles;
     juce::Array<juce::File> presetFiles;
     bool tunerVisible { false };
 

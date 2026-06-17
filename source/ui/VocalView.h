@@ -43,26 +43,35 @@ public:
         addAndMakeVisible (infoLabel);
 
         auto& s = processorRef.apvts;
-        panels.add (new InputPanel (s, "vocGain", "GAIN",
-                                    processorRef.getTotalNumInputChannels(),
-                                    processorRef.getVocalInputCh(),
-                                    [this] (int ch) { processorRef.setVocalInputCh (ch); }));
-        panels.add (new InfoPanel  ("LOW CUT", "90 Hz"));
-        panels.add (new ModulePanel (s, "COMP", "vocCompOn",
-                                     { { "vocCompThresh", "THRESH" }, { "vocCompRatio", "RATIO" } }));
-        panels.add (new ModulePanel (s, "AIR", "vocAirOn", { { "vocAir", "AIR" } }));
-        panels.add (new ModulePanel (s, "REVERB", "vocReverbOn", { { "vocReverbMix", "MIX" } }));
-        panels.add (new InfoPanel  ("LIMITER", "-0.1 dB"));
 
-        for (auto* pnl : panels) addAndMakeVisible (pnl);
+        // 1. sor — bemenet, szűrő, kapu, melegítés, kompresszor.
+        row1.add (new InputPanel (s, "vocGain", "GAIN",
+                                  processorRef.getTotalNumInputChannels(),
+                                  processorRef.getVocalInputCh(),
+                                  [this] (int ch) { processorRef.setVocalInputCh (ch); }));
+        row1.add (new InfoPanel  ("LOW CUT", "90 Hz"));
+        row1.add (new ModulePanel (s, "GATE", "vocGateOn", { { "vocGateThresh", "GATE" } }));
+        row1.add (new ModulePanel (s, "WARMTH", "vocWarmthOn", { { "vocWarmth", "WARMTH" } }));
+        row1.add (new ModulePanel (s, "COMP", "vocCompOn",
+                                   { { "vocCompThresh", "THRESH" }, { "vocCompRatio", "RATIO" } }));
+
+        // 2. sor — air, delay, reverb, limiter.
+        row2.add (new ModulePanel (s, "AIR", "vocAirOn", { { "vocAir", "AIR" } }));
+        row2.add (new ModulePanel (s, "DELAY", "vocDelayOn",
+                                   { { "vocDelayTime", "TIME" }, { "vocDelayMix", "MIX" } }));
+        row2.add (new ModulePanel (s, "REVERB", "vocReverbOn", { { "vocReverbMix", "MIX" } }));
+        row2.add (new InfoPanel  ("LIMITER", "-0.1 dB"));
+
+        for (auto* pnl : row1) addAndMakeVisible (pnl);
+        for (auto* pnl : row2) addAndMakeVisible (pnl);
 
         startTimerHz (12);
     }
 
     ~VocalView() override { stopTimer(); }
 
-    int defaultWidth()  const override { return 860; }
-    int defaultHeight() const override { return 330; }
+    int defaultWidth()  const override { return 820; }
+    int defaultHeight() const override { return 440; }
 
     void paint (juce::Graphics& g) override
     {
@@ -87,29 +96,36 @@ public:
         infoLabel.setBounds (bottom);
         area.removeFromBottom (6);
 
-        // A panelek KITÖLTIK a teljes szélességet (preferált arányok szerint),
-        // de FIX, mértéktartó magasságúak (ne legyenek feleslegesen nyúlósak),
-        // függőlegesen középre igazítva az elérhető területen.
-        const int gap   = 10;
-        const int rowH  = juce::jmin (area.getHeight(), 220);
-        auto      row   = area.withSizeKeepingCentre (area.getWidth(), rowH);
+        // Két panelsor, mindkettő arányosan kitölti a szélességet.
+        auto r1 = area.removeFromTop (juce::jmin (area.getHeight() / 2, 150));
+        area.removeFromTop (10);
+        layoutRow (r1, row1);
+        layoutRow (area, row2);
+    }
 
+private:
+    // Arányos szélesség-kitöltés (mint a gitár nézet sorai).
+    static void layoutRow (juce::Rectangle<int> area, juce::OwnedArray<PanelBase>& panels)
+    {
+        if (panels.isEmpty())
+            return;
+
+        const int gap = 10;
         int totalPref = 0;
         for (auto* pnl : panels) totalPref += pnl->getPreferredWidth();
-        const int avail = row.getWidth() - gap * (panels.size() - 1);
+        const int avail = area.getWidth() - gap * (panels.size() - 1);
 
-        int x = row.getX();
+        int x = area.getX();
         for (int i = 0; i < panels.size(); ++i)
         {
             const int w = (i == panels.size() - 1)
-                            ? (row.getRight() - x)
+                            ? (area.getRight() - x)
                             : juce::roundToInt (avail * (panels[i]->getPreferredWidth() / (float) totalPref));
-            panels[i]->setBounds (x, row.getY(), w, rowH);
+            panels[i]->setBounds (x, area.getY(), w, area.getHeight());
             x += w + gap;
         }
     }
 
-private:
     void timerCallback() override
     {
         const double sr = processorRef.getSampleRate();
@@ -129,7 +145,7 @@ private:
     juce::Label      latencyLabel;
     juce::Label      infoLabel;
 
-    juce::OwnedArray<PanelBase> panels;
+    juce::OwnedArray<PanelBase> row1, row2;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VocalView)
 };

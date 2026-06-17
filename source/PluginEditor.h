@@ -46,7 +46,7 @@ private:
     juce::Array<juce::File> presetFiles;
     bool tunerVisible { false };
 
-    static constexpr int baseW = 880;
+    static constexpr int baseW = 960;
     static constexpr int baseH = 470;
     static constexpr int tunerH = 138;
 

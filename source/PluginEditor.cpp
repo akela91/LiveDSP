@@ -70,7 +70,7 @@ GuitarDspEditor::GuitarDspEditor (GuitarDspProcessor& p)
 
     setSize (baseW, baseH);
     setResizable (true, true);
-    setResizeLimits (820, 440, 1400, 1000);
+    setResizeLimits (900, 440, 1500, 1000);
 
     startTimerHz (12);
 }
@@ -86,7 +86,8 @@ void GuitarDspEditor::buildPanels()
     // 1. sor — jelút eleje
     row1.add (new ModulePanel (processorRef.apvts, "INPUT",  {},        { { "inputGain", "IN" } }));
     row1.add (new ModulePanel (processorRef.apvts, "GATE",   "gateOn",  { { "gateThreshold", "THRESH" } }));
-    row1.add (new ModulePanel (processorRef.apvts, "PITCH",  "pitchOn", { { "pitchSemitones", "SEMI" } }));
+    row1.add (new ModulePanel (processorRef.apvts, "PITCH",  "pitchOn",
+                               { { "pitchSemitones", "SEMI" }, { "pitchLatency", "LAT" } }));
     row1.add (new ModulePanel (processorRef.apvts, "DRIVE",  "driveOn",
                                { { "driveAmount", "DRIVE" }, { "driveTone", "TONE" }, { "driveLevel", "LEVEL" } }));
 

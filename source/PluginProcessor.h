@@ -16,7 +16,8 @@
       In -> [InputGain] -> [Gate] -> [Pitch] -> [Overdrive] -> [NAM]
          -> (mono->stereo) -> [Cab IR] -> [Delay] -> [Reverb] -> [OutputGain] -> Out
 */
-class GuitarDspProcessor  : public juce::AudioProcessor
+class GuitarDspProcessor  : public juce::AudioProcessor,
+                            private juce::AudioProcessorValueTreeState::Listener
 {
 public:
     GuitarDspProcessor();
@@ -70,6 +71,7 @@ public:
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     void updateParametersFromApvts() noexcept;
+    void parameterChanged (const juce::String& parameterID, float newValue) override;
 
     //==============================================================================
     // DSP modulok
@@ -108,6 +110,7 @@ private:
     std::atomic<float>* pGateThresh  { nullptr };
     std::atomic<float>* pPitchOn     { nullptr };
     std::atomic<float>* pPitchSemis  { nullptr };
+    std::atomic<float>* pPitchLat    { nullptr };
     std::atomic<float>* pDriveOn     { nullptr };
     std::atomic<float>* pDriveAmt    { nullptr };
     std::atomic<float>* pDriveTone   { nullptr };

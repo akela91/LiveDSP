@@ -16,6 +16,7 @@ GuitarDspProcessor::GuitarDspProcessor()
     pGateThresh = apvts.getRawParameterValue ("gateThreshold");
     pPitchOn    = apvts.getRawParameterValue ("pitchOn");
     pPitchSemis = apvts.getRawParameterValue ("pitchSemitones");
+    pPitchLat   = apvts.getRawParameterValue ("pitchLatency");
     pDriveOn    = apvts.getRawParameterValue ("driveOn");
     pDriveAmt   = apvts.getRawParameterValue ("driveAmount");
     pDriveTone  = apvts.getRawParameterValue ("driveTone");
@@ -31,6 +32,9 @@ GuitarDspProcessor::GuitarDspProcessor()
     pEqOn       = apvts.getRawParameterValue ("eqOn");
     for (int i = 0; i < Equalizer::numBands; ++i)
         pEqBands[(size_t) i] = apvts.getRawParameterValue ("eqBand" + juce::String (i));
+
+    // A pitch-latencia élő újrakonfigurálása (üzenetszálon).
+    apvts.addParameterListener ("pitchLatency", this);
 
     // Fejlesztői kényelem: az alapértelmezett models/ mappából betöltjük az
     // első NAM modellt és IR-t MÁR a konstruktorban (az editor előtt), hogy a
@@ -84,6 +88,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarDspProcessor::createPa
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "pitchOn", 1 }, "Pitch On", false));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "pitchSemitones", 1 },
         "Transpose", NormalisableRange<float> { -12.0f, 12.0f, 1.0f }, 0.0f));
+    // Pitch latencia/minőség: kisebb = kisebb latencia (több műtermék),
+    // nagyobb = jobb minőség (nagyobb latencia). Élőben átkonfigurálja a motort.
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "pitchLatency", 1 },
+        "Pitch Latency", NormalisableRange<float> { 8.0f, 80.0f, 1.0f }, 40.0f));
 
     // Overdrive
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "driveOn", 1 }, "Drive On", false));
@@ -140,6 +148,8 @@ void GuitarDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     gate.prepare (monoSpec);
     overdrive.prepare (monoSpec);
+    if (pPitchLat != nullptr)
+        pitchShifter.setBlockMs (pPitchLat->load());
     pitchShifter.prepare (monoSpec);
     nam.prepare (monoSpec);
 
@@ -215,6 +225,16 @@ void GuitarDspProcessor::updateParametersFromApvts() noexcept
     reverbParams.roomSize = juce::jmap (rv, 0.0f, 1.0f, 0.3f, 0.9f);
     reverbParams.width    = 1.0f;
     reverb.setParameters (reverbParams);
+}
+
+void GuitarDspProcessor::parameterChanged (const juce::String& parameterID, float newValue)
+{
+    // Standalone UI-ból üzenetszálon hívódik -> biztonságos újrakonfigurálni.
+    if (parameterID == "pitchLatency")
+    {
+        pitchShifter.setBlockMs ((double) newValue);
+        pitchShifter.reconfigure();
+    }
 }
 
 void GuitarDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,

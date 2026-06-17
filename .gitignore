@@ -1,0 +1,22 @@
+# Build kimenetek
+/build/
+/out/
+cmake-build-*/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+
+# OS
+Thumbs.db
+.DS_Store
+
+# ASIO SDK (licenc miatt nem verziókövetjük)
+/ext/asiosdk/
+
+# A modelleket NEM verziókövetjük (nagy bináris fájlok + a kereskedelmi
+# NAM-captúrák licence). Lokálisan a build így is használja őket a
+# GUITARDSP_DEFAULT_MODELS_DIR útvonalon keresztül.
+/models/

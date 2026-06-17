@@ -310,6 +310,21 @@ void GuitarDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 }
 
 //==============================================================================
+int GuitarDspProcessor::getEffectiveLatencySamples() const noexcept
+{
+    int s = 0;
+
+    // A pitch shifter csak akkor ad latenciát, ha be van kapcsolva ÉS van eltolás
+    // (semitones != 0) — a process() ilyenkor engedi át nyersen, latencia nélkül.
+    if (pPitchOn != nullptr && pPitchOn->load() > 0.5f
+        && pPitchSemis != nullptr && pPitchSemis->load() != 0.0f)
+        s += pitchShifter.getLatencySamples();
+
+    // A Cab IR zero-latency módban fut (0), a többi modul szintén 0 latencia.
+    return s;
+}
+
+//==============================================================================
 void GuitarDspProcessor::copyRecentInput (float* dest, int numToCopy) const noexcept
 {
     if (tunerRing.empty() || numToCopy <= 0)

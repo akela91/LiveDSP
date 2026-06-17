@@ -56,6 +56,10 @@ public:
 
     int getCurrentBlockSize() const noexcept { return currentBlockSize; }
 
+    // A jelenleg AKTÍV modulok által hozzáadott latencia (mintában) — dinamikus,
+    // követi a kapcsolók állását (pl. pitch be/ki). Az élő kijelzőhöz.
+    int getEffectiveLatencySamples() const noexcept;
+
     // A hangolóhoz: a legfrissebb 'numToCopy' nyers bemeneti mintát másolja
     // időrendben a dest-be (üzenetszálról hívandó). A hangszállal való enyhe
     // versengés a hangolónál elfogadható.

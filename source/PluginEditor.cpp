@@ -72,7 +72,7 @@ GuitarDspEditor::GuitarDspEditor (GuitarDspProcessor& p)
     setResizable (true, true);
     setResizeLimits (820, 440, 1400, 1000);
 
-    startTimerHz (8);
+    startTimerHz (12);
 }
 
 GuitarDspEditor::~GuitarDspEditor()
@@ -161,9 +161,9 @@ void GuitarDspEditor::timerCallback()
     const double sr = processorRef.getSampleRate();
     if (sr > 0.0)
     {
-        // Becsült input->output késleltetés: a plugin által hozzáadott latencia
-        // (pitch + IR) + a ki/be pufferelés (~2 blokk).
-        const double samples = processorRef.getLatencySamples()
+        // Becsült input->output késleltetés: az AKTÍV modulok latenciája
+        // (dinamikus, követi a pitch kapcsolót) + a ki/be pufferelés (~2 blokk).
+        const double samples = processorRef.getEffectiveLatencySamples()
                                + 2.0 * processorRef.getCurrentBlockSize();
         latencyLabel.setText ("Latency ~ " + juce::String (samples / sr * 1000.0, 1) + " ms",
                               juce::dontSendNotification);

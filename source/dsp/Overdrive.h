@@ -4,16 +4,16 @@
 #include <cmath>
 
 /**
-    Tube Screamer stílusú overdrive/booster.
+    Tube Screamer style overdrive/booster.
 
-    Jelút a stompbox-on belül:
-        [highpass ~720 Hz] -> [drive gain] -> [aszimmetrikus soft-clip (tanh)]
+    Signal chain inside the stompbox:
+        [highpass ~720 Hz] -> [drive gain] -> [asymmetric soft-clip (tanh)]
         -> [lowpass / tone] -> [level]
 
-    A highpass adja a TS jellegzetes "mid-hump" alapját (a basszust levágja a
-    klippelés előtt), a lowpass a tone-t. Mono, in-place.
+    The highpass provides the basis of the characteristic TS "mid-hump" (cutting
+    the bass before clipping), the lowpass provides the tone. Mono, in-place.
 
-    RT-safe: nincs allokáció a process()-ben.
+    RT-safe: no allocation in process().
 */
 class Overdrive
 {
@@ -43,7 +43,7 @@ public:
     void setDrive (float driveDb) noexcept   { driveGain.setTargetValue (juce::Decibels::decibelsToGain (driveDb)); }
     void setLevel (float levelDb) noexcept   { level.setTargetValue (juce::Decibels::decibelsToGain (levelDb)); }
 
-    // 0..1: a tone-szűrő levágási frekvenciáját skálázza (sötét..fényes).
+    // 0..1: scales the tone filter's cutoff frequency (dark..bright).
     void setTone (float toneNorm) noexcept
     {
         toneCutoff = juce::jmap (juce::jlimit (0.0f, 1.0f, toneNorm), 800.0f, 6000.0f);
@@ -59,14 +59,14 @@ public:
         {
             float x = samples[i];
 
-            x = preFilter.processSample (x);          // basszus levágás klippelés előtt
+            x = preFilter.processSample (x);          // bass cut before clipping
             x *= driveGain.getNextValue();
 
-            // Aszimmetrikus soft clipping (páros felharmonikusokért).
+            // Asymmetric soft clipping (for even harmonics).
             x = std::tanh (x) + 0.05f * std::tanh (x * 2.0f);
 
             x = toneFilter.processSample (x);          // tone
-            x *= level.getNextValue() * 0.5f;          // kimeneti szint kompenzáció
+            x *= level.getNextValue() * 0.5f;          // output level compensation
 
             samples[i] = x;
         }

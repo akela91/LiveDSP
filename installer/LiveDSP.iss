@@ -1,29 +1,33 @@
 ; ===========================================================================
-; LiveDSP - Inno Setup telepítő szkript
+; LiveDSP - Inno Setup installer script
 ; ---------------------------------------------------------------------------
-; Next-next-finish telepítő, amely a célgépre telepíti:
-;   - LiveDSP.exe (statikus MSVC runtime -> NINCS VC++ redist függőség)
-;   - models\  (NAM modellek + IR-ek, az exe mellé)
-;   - favs\    (gyári presetek, az exe mellé)
-; A modellek/presetek az exe melletti mappákból töltődnek (lásd AppPaths.h).
+; Next-next-finish installer that installs onto the target machine:
+;   - LiveDSP.exe (static MSVC runtime -> NO VC++ redist dependency)
+;   - LICENSE + THIRD-PARTY-NOTICES.md (GPLv3 compliance)
 ;
-; Fordítás (miután az Inno Setup telepítve van):
+; NAM models/rigs and presets are NOT bundled (the commercial captures cannot
+; be redistributed). On first run the app creates a writable folder under
+; <Documents>/LiveDSP/models; the user downloads a rig (see the in-app link and
+; the README) and either extracts it there or imports it with the AMP/RIG
+; panel's "Browse" button.
+;
+; Build (once Inno Setup is installed):
 ;   "C:\Program Files\Inno Setup 6\ISCC.exe" installer\LiveDSP.iss
-; A kész telepítő: installer\Output\LiveDSP-Setup-<verzió>.exe
+; Resulting installer: installer\Output\LiveDSP-Setup-<version>.exe
 ;
-; FONTOS: előbb Release buildet kell csinálni, hogy létezzen a lenti exe.
+; IMPORTANT: build the Release configuration first so the exe below exists.
 ; ===========================================================================
 
 #define AppName       "LiveDSP"
-; A verziót a CMake POST_BUILD a /DAppVersion=... kapcsolóval adja át; önálló
-; (kézi) ISCC-fordításnál ez az alapérték lép életbe.
+; The version is passed by the CMake POST_BUILD via /DAppVersion=...; for a
+; standalone (manual) ISCC build this default applies.
 #ifndef AppVersion
   #define AppVersion  "0.1.0"
 #endif
 #define AppPublisher  "Qulto"
 #define AppExeName    "LiveDSP.exe"
 
-; A szkript mappájához (installer\) képest relatív útvonalak.
+; Paths relative to the script folder (installer\).
 #define RepoRoot      ".."
 #define ExeSource     RepoRoot + "\build\LiveDSP_artefacts\Release\Standalone\" + AppExeName
 
@@ -35,43 +39,38 @@ AppPublisher={#AppPublisher}
 AppPublisherURL=https://qulto.eu
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
-; A telepítő egyetlen, tömörített exe legyen:
+; The installer should be a single, compressed exe:
 OutputDir=Output
 OutputBaseFilename=LiveDSP-Setup-{#AppVersion}
 Compression=lzma2/max
 SolidCompression=yes
-; 64-bites alkalmazás: csak x64 Windowsra települ, Program Files (nem x86) alá.
+; 64-bit application: installs only on x64 Windows, under Program Files (not x86).
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-; Nincs adminjog kötelezően, de Program Files-hoz kell -> admin.
+; Admin is required for Program Files.
 PrivilegesRequired=admin
 WizardStyle=modern
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#AppExeName}
-; A LiveDSP GPLv3 alatt terjeszthető (GPL függőségek: JUCE, Rubber Band, ASIO
-; SDK) — a varázsló kiírja a licencet a telepítés előtt.
+; LiveDSP is distributed under GPLv3 (GPL dependencies: JUCE, Rubber Band, ASIO
+; SDK) — the wizard shows the license before installing.
 LicenseFile={#RepoRoot}\LICENSE
 
 [Languages]
-Name: "hungarian"; MessagesFile: "compiler:Languages\Hungarian.isl"
-Name: "english";   MessagesFile: "compiler:Default.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-; Opcionális: az ingyenes ASIO4ALL univerzális ASIO driver. NEM csomagoljuk
-; (a szerző nem ad nyilvános újraterjesztési engedélyt), helyette a telepítés
-; végén a HIVATALOS letöltőoldalt nyitjuk meg. ASIO driver csak akkor kell, ha
-; a hangkártyának nincs saját ASIO drivere (pl. Focusrite-nak van).
-Name: "asio4all"; Description: "ASIO4ALL ingyenes ASIO driver letöltése (hivatalos oldal megnyitása a végén)"; GroupDescription: "Alacsony latenciás ASIO driver:"; Flags: unchecked
+; Optional: the free ASIO4ALL universal ASIO driver. We do NOT bundle it (the
+; author grants no public redistribution permission); instead we open the
+; OFFICIAL download page at the end. An ASIO driver is only needed if the audio
+; interface has no ASIO driver of its own (a Focusrite, for example, does).
+Name: "asio4all"; Description: "Download the free ASIO4ALL driver (opens the official page at the end)"; GroupDescription: "Low-latency ASIO driver:"; Flags: unchecked
 
 [Files]
-; A futtatható.
+; The executable.
 Source: "{#ExeSource}"; DestDir: "{app}"; Flags: ignoreversion
-; NAM modellek + IR-ek (rekurzívan).
-Source: "{#RepoRoot}\models\*"; DestDir: "{app}\models"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Gyári presetek (rekurzívan).
-Source: "{#RepoRoot}\favs\*";   DestDir: "{app}\favs";   Flags: ignoreversion recursesubdirs createallsubdirs
-; Licenc + harmadik féltől származó jegyzékek (GPLv3 megfelelőség).
+; License + third-party notices (GPLv3 compliance).
 Source: "{#RepoRoot}\LICENSE";                  DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}\THIRD-PARTY-NOTICES.md";   DestDir: "{app}"; Flags: ignoreversion
 
@@ -81,7 +80,7 @@ Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}";  Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]
-; Az ASIO4ALL HIVATALOS letöltőoldalának megnyitása, ha a felhasználó kérte
-; (a böngészőben, a felhasználó jogaival — nem a telepítő admin-jogával).
-Filename: "https://asio4all.org/"; Description: "ASIO4ALL letöltőoldal megnyitása"; Flags: shellexec runasoriginaluser nowait postinstall skipifsilent; Tasks: asio4all
+; Open the OFFICIAL ASIO4ALL download page if the user asked for it (in the
+; browser, as the original user — not with the installer's admin rights).
+Filename: "https://asio4all.org/"; Description: "Open the ASIO4ALL download page"; Flags: shellexec runasoriginaluser nowait postinstall skipifsilent; Tasks: asio4all
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent

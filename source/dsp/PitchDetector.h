@@ -5,22 +5,22 @@
 #include <cmath>
 
 /**
-    Hangmagasság-detektor a hangolóhoz — McLeod Pitch Method (MPM) alapú.
+    Pitch detector for the tuner — based on the McLeod Pitch Method (MPM).
 
-    Normalizált négyzetes differencia függvény (NSDF) + "key maxima"
-    csúcsválasztás: a globális csúcs k-szorosát (0.9) elérő ELSŐ csúcsot
-    választja. Ez stabil, és elkerüli az oktáv-tévesztést (magas hangoknál is).
+    Normalized square difference function (NSDF) + "key maxima"
+    peak picking: selects the FIRST peak that reaches k times (0.9) the
+    global peak. This is stable, and avoids octave errors (even for high notes).
 
-    NEM a hangszálon fut — az üzenetszálról (Timer) hívjuk egy másolt
-    bemeneti pufferre.
+    Does NOT run on the audio thread — it is called from the message thread (Timer)
+    on a copied input buffer.
 */
 class PitchDetector
 {
 public:
     struct Result
     {
-        float frequency { 0.0f };  // Hz, 0 ha nincs megbízható detektálás
-        float clarity   { 0.0f };  // 0..1 megbízhatóság
+        float frequency { 0.0f };  // Hz, 0 if there is no reliable detection
+        float clarity   { 0.0f };  // 0..1 reliability
     };
 
     void setSampleRate (double sr) noexcept { sampleRate = sr; }
@@ -37,7 +37,7 @@ public:
         if (maxLag <= minLag)
             return result;
 
-        // DC eltávolítás + energia (csend-gate).
+        // DC removal + energy (silence gate).
         double mean = 0.0;
         for (int i = 0; i < numSamples; ++i)
             mean += samples[i];
@@ -51,10 +51,10 @@ public:
             work[(size_t) i] = v;
             energy += (double) v * v;
         }
-        if (energy / numSamples < 1.0e-5)   // ~ -50 dBFS alatt nincs detektálás
+        if (energy / numSamples < 1.0e-5)   // no detection below ~ -50 dBFS
             return result;
 
-        // NSDF kiszámítása 0..maxLag-ig.
+        // Compute the NSDF from 0..maxLag.
         nsdf.assign ((size_t) (maxLag + 1), 0.0f);
         for (int lag = 0; lag <= maxLag; ++lag)
         {
@@ -72,22 +72,22 @@ public:
             nsdf[(size_t) lag] = denom > 0.0f ? (float) (2.0 * ac) / denom : 0.0f;
         }
 
-        // "Key maxima": minden pozitív-meredekségű nullátmenet utáni első
-        // lokális maximumot összegyűjtjük (a minLag-tól).
+        // "Key maxima": collect the first local maximum after each
+        // positive-slope zero crossing (starting from minLag).
         float globalMax = 0.0f;
         int   chosenLag = -1;
 
-        // 1) globális csúcs a key maximák között
+        // 1) global peak among the key maxima
         std::vector<int> keyLags;
         {
             int lag = minLag;
-            // előrelépés az első pozitív nullátmenetig
+            // advance to the first positive zero crossing
             while (lag < maxLag && nsdf[(size_t) lag] > 0.0f) ++lag;
             while (lag < maxLag)
             {
                 if (nsdf[(size_t) lag] > 0.0f && nsdf[(size_t) (lag - 1)] <= 0.0f)
                 {
-                    // pozitív zónába léptünk -> keressük a lokális maximumot
+                    // entered a positive zone -> look for the local maximum
                     int   maxPos = lag;
                     float maxVal = nsdf[(size_t) lag];
                     while (lag < maxLag && nsdf[(size_t) lag] > 0.0f)
@@ -105,7 +105,7 @@ public:
         if (keyLags.empty() || globalMax <= clarityThreshold)
             return result;
 
-        // 2) az első key maximum, amely eléri a globális csúcs k-szorosát.
+        // 2) the first key maximum that reaches k times the global peak.
         const float threshold = 0.9f * globalMax;
         for (int kl : keyLags)
             if (nsdf[(size_t) kl] >= threshold) { chosenLag = kl; break; }
@@ -113,7 +113,7 @@ public:
         if (chosenLag < minLag)
             return result;
 
-        // 3) parabolikus interpoláció a választott csúcs körül.
+        // 3) parabolic interpolation around the chosen peak.
         const float y0 = chosenLag > 0 ? nsdf[(size_t) (chosenLag - 1)] : nsdf[(size_t) chosenLag];
         const float y1 = nsdf[(size_t) chosenLag];
         const float y2 = chosenLag + 1 <= maxLag ? nsdf[(size_t) (chosenLag + 1)] : nsdf[(size_t) chosenLag];
@@ -130,7 +130,7 @@ public:
 private:
     double sampleRate { 48000.0 };
     float  minFreq    { 40.0f };
-    float  maxFreq    { 1200.0f };   // magas fekvésig
+    float  maxFreq    { 1200.0f };   // up to high register
     float  clarityThreshold { 0.7f };
 
     std::vector<float> work;

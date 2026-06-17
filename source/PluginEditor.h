@@ -6,9 +6,9 @@
 #include "ui/AppView.h"
 
 /**
-    Vékony shell-szerkesztő: a közös LookAndFeel-t birtokolja, és az app-mód
-    szerint EGY AppView-t mutat (Landing / Guitar / Vocal). A nézet a teljes
-    ablakot kitölti; módváltáskor az ablak átméreteződik a nézet igénye szerint.
+    Thin shell editor: owns the shared LookAndFeel and shows exactly ONE AppView
+    according to the app mode (Landing / Guitar / Vocal). The view fills the whole
+    window; on a mode change the window resizes to the view's requested size.
 */
 class LiveDspEditor  : public juce::AudioProcessorEditor
 {

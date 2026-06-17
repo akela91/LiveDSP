@@ -3,19 +3,19 @@
 #include <JuceHeader.h>
 
 /**
-    Közös bázis az app-nézetekhez (Landing / Guitar / Vocal). A shell-szerkesztő
-    (LiveDspEditor) egyszerre egy AppView-t mutat, a kiválasztott app-mód
-    szerint. A nézet a teljes ablakot kitölti.
+    Common base for the app views (Landing / Guitar / Vocal). The shell editor
+    (LiveDspEditor) shows a single AppView at a time, according to the selected
+    app mode. The view fills the entire window.
 */
 struct AppView : juce::Component
 {
-    // Vissza az induló (Landing) képernyőre. A shell köti be.
+    // Return to the Landing screen. Wired up by the shell.
     std::function<void()> onBackToMenu;
 
-    // Ablakméret-kérés a shelltől (pl. a gitár tuner ki/be nyitásakor).
+    // Window-size request to the shell (e.g. when the guitar tuner opens/closes).
     std::function<void (int, int)> onRequestSize;
 
-    // A nézet alapértelmezett mérete és átméretezhetősége.
+    // The view's default size and resizability.
     virtual int  defaultWidth()   const = 0;
     virtual int  defaultHeight()  const = 0;
     virtual bool wantsResizable() const { return false; }

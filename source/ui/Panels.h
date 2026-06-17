@@ -7,14 +7,14 @@
 using APVTS = juce::AudioProcessorValueTreeState;
 
 //==============================================================================
-/** Közös bázis a modul-panelekhez (egységes elrendezéshez). */
+/** Common base for module panels (for a uniform layout). */
 struct PanelBase : juce::Component
 {
     virtual int getPreferredWidth() const = 0;
 };
 
 //==============================================================================
-/** Rotary knob + felirat + APVTS attachment egy csomagban. */
+/** Rotary knob + label + APVTS attachment bundled together. */
 class KnobControl : public juce::Component
 {
 public:
@@ -48,7 +48,7 @@ private:
 };
 
 //==============================================================================
-/** Függőleges fader + felirat (EQ-hoz). */
+/** Vertical fader + label (for the EQ). */
 class FaderControl : public juce::Component
 {
 public:
@@ -81,7 +81,7 @@ private:
 };
 
 //==============================================================================
-/** Kerek "power" kapcsoló (akcentus, ha be van kapcsolva). */
+/** Round "power" toggle (accent-colored when enabled). */
 class PowerButton : public juce::Button
 {
 public:
@@ -102,7 +102,7 @@ public:
                             : juce::Colour (LiveLookAndFeel::cTextDim);
         g.setColour (col);
         g.drawEllipse (c.x - r + 1.5f, c.y - r + 1.5f, (r - 1.5f) * 2.0f, (r - 1.5f) * 2.0f, 1.6f);
-        // power ikon: függőleges vonal felül
+        // power icon: vertical line at the top
         g.fillRoundedRectangle (c.x - 1.0f, c.y - r + 2.0f, 2.0f, r * 0.8f, 1.0f);
         if (on)
             g.setColour (col.withAlpha (0.25f)), g.fillEllipse (c.x - r, c.y - r, r * 2.0f, r * 2.0f);
@@ -113,7 +113,7 @@ private:
 };
 
 //==============================================================================
-/** Sötét, lekerekített modul-panel: fejléc (cím + opcionális power), tartalom. */
+/** Dark, rounded module panel: header (title + optional power), content. */
 class ModulePanel : public PanelBase
 {
 public:
@@ -139,8 +139,8 @@ public:
 
     void setIcon (Icon i) { icon = i; repaint(); }
 
-    // Aktivitás-LED: a fejlécben egy kis jelző, ami KIGYULLAD, amikor a modul
-    // épp dolgozik (kapu némít / kompresszor vág). A 'lit' 0 = ki, 1 = teljes.
+    // Activity LED: a small header indicator that LIGHTS UP when the module is
+    // working (gate ducking / compressor gain reduction). 'lit' 0 = off, 1 = full.
     void enableLed (bool b) { hasLed = b; }
     void setLedLevel (float lit)
     {
@@ -175,12 +175,12 @@ public:
 
         if (hasLed)
         {
-            // A LED a power gomb mellett balra. Aktivitásnál (ledLit nagy) kigyullad.
+            // The LED sits left of the power button. It lights up on activity (large ledLit).
             const float closed = ledLit;
             auto hb = header.toNearestInt();
             if (power != nullptr) hb.removeFromRight (headerH);
             auto dot = hb.removeFromRight (16).withSizeKeepingCentre (9, 9).toFloat();
-            const auto lit = juce::Colour (0xffe0653a);   // meleg narancs = némítás
+            const auto lit = juce::Colour (0xffe0653a);   // warm orange = muting
             g.setColour (juce::Colour (LiveLookAndFeel::cTrack));
             g.fillEllipse (dot);
             if (closed > 0.05f)
@@ -205,7 +205,7 @@ public:
 
         if (icon == Icon::amp)
         {
-            // amp fej: keret + rácsvonalak + 3 gomb felül
+            // amp head: frame + grille lines + 3 knobs on top
             g.setColour (dim);
             g.drawRoundedRectangle (box, 6.0f, 2.0f);
             auto grille = box.reduced (10.0f).withTrimmedTop (14.0f);
@@ -242,8 +242,8 @@ public:
         r.reduce (8, 6);
         if (! knobs.isEmpty())
         {
-            // A knob-blokkot KÖZÉPRE igazítjuk mindkét tengelyen, maximált
-            // mérettel — így a panel szélesítésekor sem úsznak szét a knobok.
+            // Center the knob block on both axes with a capped size — so the knobs
+            // don't drift apart when the panel is widened.
             const int kh = juce::jmin (r.getHeight(), 108);
             const int kw = juce::jmin (r.getWidth(),  knobs.size() * knobWidth);
             auto      row = r.withSizeKeepingCentre (kw, kh);
@@ -266,9 +266,15 @@ private:
 };
 
 //==============================================================================
-/** Választós panel (AMP / CAB): fejléc (cím + power) + egy ComboBox (modell/IR
-    választó) + alatta a modul ikonja. A combót a befoglaló nézet tölti fel
-    (getCombo()), így a fájl-logika ott marad. */
+/** Selector panel (AMP / CAB): header (title + power) + a ComboBox (model/IR
+    selector) + the module icon below. The combo is populated by the enclosing
+    view (getCombo()), so the file logic stays there.
+
+    Optionally (used by AMP/RIG) it can show:
+      - a "Browse" button that imports an external file (e.g. a .nam rig) — the
+        enclosing view receives the chosen file and decides where to copy it;
+      - a download hyperlink shown only while nothing is loaded yet, so a new
+        user knows where to get a rig to try. */
 class ComboPanel : public PanelBase
 {
 public:
@@ -293,6 +299,42 @@ public:
 
     juce::ComboBox& getCombo() noexcept { return combo; }
 
+    // Add a "Browse" button that opens a file chooser with the given filter
+    // (e.g. "*.nam") and hands the chosen file to onChosen (the enclosing view
+    // copies it into the user models folder and loads it).
+    void enableBrowse (juce::String filter, juce::String buttonText,
+                       std::function<void (const juce::File&)> onChosen)
+    {
+        browseFilter = std::move (filter);
+        onFileChosen = std::move (onChosen);
+
+        browseButton = std::make_unique<juce::TextButton> (buttonText);
+        browseButton->setColour (juce::TextButton::buttonColourId,  juce::Colour (LiveLookAndFeel::cPanelHead));
+        browseButton->setColour (juce::TextButton::textColourOffId, juce::Colour (LiveLookAndFeel::cText));
+        browseButton->onClick = [this] { openChooser(); };
+        addAndMakeVisible (*browseButton);
+        resized();
+    }
+
+    // Add a download hyperlink (hidden by default; toggle with setDownloadLinkVisible).
+    void setDownloadLink (const juce::String& text, const juce::URL& url)
+    {
+        downloadLink = std::make_unique<juce::HyperlinkButton> (text, url);
+        downloadLink->setFont (juce::Font (juce::FontOptions (11.0f)), false, juce::Justification::centred);
+        downloadLink->setColour (juce::HyperlinkButton::textColourId, juce::Colour (LiveLookAndFeel::cAccent));
+        addChildComponent (*downloadLink);   // hidden until setDownloadLinkVisible(true)
+        resized();
+    }
+
+    void setDownloadLinkVisible (bool shouldShow)
+    {
+        if (downloadLink != nullptr && downloadLink->isVisible() != shouldShow)
+        {
+            downloadLink->setVisible (shouldShow);
+            repaint();
+        }
+    }
+
     int getPreferredWidth() const override { return width; }
 
     void paint (juce::Graphics& g) override
@@ -311,9 +353,12 @@ public:
         if (power != nullptr) textArea.removeFromRight (24);
         g.drawText (title, textArea, juce::Justification::centredLeft);
 
-        // Ikon a combó alatti területen.
-        auto iconArea = getLocalBounds().withTrimmedTop (24 + 30).reduced (14, 8).toFloat();
-        drawIcon (g, iconArea);
+        // Icon in the area below the combo (and below the Browse button, if any).
+        int topTrim = 24 + 30 + (browseButton != nullptr ? 28 : 0);
+        auto iconArea = getLocalBounds().withTrimmedTop (topTrim).reduced (14, 8);
+        if (downloadLink != nullptr && downloadLink->isVisible())
+            iconArea.removeFromBottom (22);
+        drawIcon (g, iconArea.toFloat());
     }
 
     void resized() override
@@ -325,9 +370,32 @@ public:
 
         r.reduce (8, 6);
         combo.setBounds (r.removeFromTop (24));
+
+        if (browseButton != nullptr)
+        {
+            r.removeFromTop (6);
+            browseButton->setBounds (r.removeFromTop (22));
+        }
+
+        if (downloadLink != nullptr)
+            downloadLink->setBounds (r.removeFromBottom (20));
     }
 
 private:
+    void openChooser()
+    {
+        chooser = std::make_unique<juce::FileChooser> ("Select a file to import",
+                                                       juce::File(), browseFilter);
+        const auto flags = juce::FileBrowserComponent::openMode
+                         | juce::FileBrowserComponent::canSelectFiles;
+        chooser->launchAsync (flags, [this] (const juce::FileChooser& fc)
+        {
+            const auto file = fc.getResult();
+            if (file.existsAsFile() && onFileChosen != nullptr)
+                onFileChosen (file);
+        });
+    }
+
     void drawIcon (juce::Graphics& g, juce::Rectangle<float> area)
     {
         const auto accent = juce::Colour (LiveLookAndFeel::cAccent);
@@ -368,12 +436,19 @@ private:
     int width;
     std::unique_ptr<PowerButton> power;
     juce::ComboBox combo;
+
+    // Optional Browse/import + download-link extras (used by the AMP/RIG panel).
+    std::unique_ptr<juce::TextButton>      browseButton;
+    std::unique_ptr<juce::HyperlinkButton> downloadLink;
+    std::function<void (const juce::File&)> onFileChosen;
+    juce::String browseFilter;
+    std::unique_ptr<juce::FileChooser> chooser;
 };
 
 //==============================================================================
-/** INPUT-panel: bemeneti csatorna-választó ComboBox + Gain knob. A csatorna-
-    választás a processzortól független (numChannels + currentCh + onChannel
-    callbacken át), így a Panels.h nem hivatkozik a processzorra. */
+/** INPUT panel: input-channel selector ComboBox + Gain knob. The channel
+    selection is independent of the processor (via numChannels + currentCh +
+    onChannel callback), so Panels.h does not reference the processor. */
 class InputPanel : public PanelBase
 {
 public:
@@ -386,7 +461,7 @@ public:
         channel.setColour (juce::ComboBox::arrowColourId,      juce::Colour (LiveLookAndFeel::cAccent));
         channel.setColour (juce::ComboBox::outlineColourId,    juce::Colours::transparentBlack);
 
-        const int n = juce::jmax (2, numChannels);   // legalább 2 elemet kínáljunk
+        const int n = juce::jmax (2, numChannels);   // offer at least 2 items
         for (int i = 0; i < n; ++i)
             channel.addItem ("In " + juce::String (i + 1), i + 1);
         channel.setSelectedId (juce::jlimit (0, n - 1, currentCh) + 1, juce::dontSendNotification);
@@ -435,7 +510,7 @@ private:
 };
 
 //==============================================================================
-/** PITCH-panel: power + SEMI/LAT knob + motorválasztó (Signalsmith/RubberBand). */
+/** PITCH panel: power + SEMI/LAT knobs + engine selector (Signalsmith/RubberBand). */
 class PitchPanel : public PanelBase
 {
 public:
@@ -464,7 +539,7 @@ public:
         addAndMakeVisible (engine);
         engineAtt = std::make_unique<APVTS::ComboBoxAttachment> (state, "pitchEngine", engine);
 
-        // RB Live minőség/latencia profil (csak az RB Live motornál releváns).
+        // RB Live quality/latency profile (only relevant for the RB Live engine).
         quality.addItem ("Fast", 1);
         quality.addItem ("Fine", 2);
         styleCombo (quality);
@@ -499,8 +574,8 @@ public:
 
         r.reduce (8, 6);
 
-        // Alsó sor: motorválasztó (bal) + RB Live minőség (jobb). A minőség-combo
-        // szélesebb, hogy a "Fast"/"Fine" felirat ne vágódjon le.
+        // Bottom row: engine selector (left) + RB Live quality (right). The quality
+        // combo is wider so the "Fast"/"Fine" labels don't get clipped.
         auto bottom = r.removeFromBottom (20);
         quality.setBounds (bottom.removeFromRight (juce::jmin (76, bottom.getWidth() / 2)));
         bottom.removeFromRight (4);
@@ -523,8 +598,8 @@ private:
 };
 
 //==============================================================================
-/** Csak-kijelző panel: fejléc + egy középre igazított FIX érték (pl. "90 Hz").
-    Olyan modulokhoz, amelyeknek nincs állítható paramétere (low-cut, limiter). */
+/** Display-only panel: header + a centered FIXED value (e.g. "90 Hz"). For
+    modules that have no adjustable parameters (low-cut, limiter). */
 class InfoPanel : public PanelBase
 {
 public:
@@ -547,7 +622,7 @@ public:
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         g.drawText (title, header.toNearestInt().reduced (10, 0), juce::Justification::centredLeft);
 
-        // FIX érték a panel közepén.
+        // Fixed value in the center of the panel.
         g.setColour (juce::Colour (LiveLookAndFeel::cText));
         g.setFont (juce::Font (juce::FontOptions (17.0f, juce::Font::bold)));
         g.drawText (value, getLocalBounds().withTrimmedTop (24), juce::Justification::centred);
@@ -564,7 +639,7 @@ private:
 };
 
 //==============================================================================
-/** EQ-panel: 9 függőleges fader + power. */
+/** EQ panel: 9 vertical faders + power. */
 class EqPanel : public PanelBase
 {
 public:
@@ -598,14 +673,14 @@ public:
         g.drawText ("EQUALIZER", header.toNearestInt().reduced (10, 0).withTrimmedRight (24),
                     juce::Justification::centredLeft);
 
-        // dB-skála + rácsvonalak a fader-régióban
+        // dB scale + grid lines in the fader region
         auto body = getContentBounds();
-        auto travel = body.withTrimmedBottom (14);   // a fader csúszó-tartománya
+        auto travel = body.withTrimmedBottom (14);   // the fader's travel range
         const int dbMarks[] = { 15, 10, 5, 0, -5, -10, -15 };
         g.setFont (juce::Font (juce::FontOptions (9.0f)));
         for (int dB : dbMarks)
         {
-            const float t = 1.0f - (float) (dB + 15) / 30.0f;       // 0=tető, 1=alja
+            const float t = 1.0f - (float) (dB + 15) / 30.0f;       // 0=top, 1=bottom
             const float y = travel.getY() + t * travel.getHeight();
             g.setColour (juce::Colour (LiveLookAndFeel::cTrack).withAlpha (dB == 0 ? 0.9f : 0.4f));
             g.drawLine ((float) body.getX(), y, (float) body.getRight(), y, dB == 0 ? 1.2f : 0.8f);
@@ -636,14 +711,12 @@ private:
         auto r = getLocalBounds();
         r.removeFromTop (24);
         r.reduce (8, 6);
-        r.removeFromLeft (scaleW);   // dB-skála gutter (bal oldal)
+        r.removeFromLeft (scaleW);   // dB scale gutter (left side)
         return r;
     }
 
     static constexpr int scaleW = 26;
-public:
 
-private:
     std::unique_ptr<PowerButton> power;
     juce::OwnedArray<FaderControl> faders;
 };

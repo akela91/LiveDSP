@@ -1,196 +1,232 @@
 # LiveDSP
 
-Standalone, alacsony latenciás Windows audio alkalmazás (JUCE 8), Neural DSP /
-Fortin stílusú UI-val. **Kétmódú app egyetlen `.exe`-ben:** induláskor egy
-landing képernyő választatja ki a két modult — **GuitarDSP** (gitár
-amp-szimulátor) vagy **VoiceDSP** (élő mikrofon csatorna). A két modul külön
-panel-elrendezést és külön DSP jelutat kap; a közös téma, knob/panel elemek és a
-hangoló újrahasznosulnak.
+A standalone, low-latency Windows audio application (JUCE 8) with a Neural DSP /
+Fortin-style UI. **Two modes in a single `.exe`:** a landing screen at startup
+lets you pick one of two modules — **GuitarDSP** (guitar amp simulator) or
+**VoiceDSP** (live microphone channel). Each module has its own panel layout and
+its own DSP signal chain; the shared theme, knob/panel widgets, and the tuner
+are reused.
 
-> Nem plugin és nem játszik zenei alapot — kizárólag a bemenő jelet dolgozza fel
-> és küldi a kimenetre, live monitorozáshoz (Focusrite Scarlett + ASIO).
+> It is not a plugin and does not play backing tracks — it only processes the
+> incoming signal and sends it to the output for live monitoring.
 
-## Módok és jelutak
+## Designed for the Focusrite Scarlett Solo
 
-A bemenetnél **módonként külön kiválasztható**, hogy a Scarlett melyik bemeneti
-csatornáját figyelje (a választás megmarad), így a mikrofon és a gitár nem
-keveredik össze.
+LiveDSP is built first and foremost for the **Focusrite Scarlett Solo** (and
+similar class-compliant USB audio interfaces) **with their firmware and ASIO
+drivers already installed**. On such a device you plug a guitar into the
+instrument input (or an SM58-style mic into the XLR input), select the
+Focusrite **ASIO** driver, and monitor in real time at a low buffer size.
 
-### GuitarDSP modul (gitár)
+Other interfaces with a working ASIO driver work the same way. Without ASIO the
+app still runs (WASAPI/DirectSound fallback), but at higher latency.
+
+## Modes and signal chains
+
+At the input you can **choose, per mode**, which interface channel to listen to
+(the choice is remembered), so the microphone and the guitar never get mixed up.
+
+### GuitarDSP module (guitar)
 ```
 In → Input Gain → Noise Gate → Pitch (Transpose) → Overdrive
    → Amp (NAM) → Cab IR → EQ → Delay → Reverb → Output Gain → Out
 ```
-A NAM-ig mono a jelút, utána sztereó. A NAM modell és a Cab IR közvetlenül az
-**AMP** és **CAB** panel legördülőjéből választható; a **GATE** panelen egy LED
-jelzi, amikor a zajzár némít. 9-sávos grafikus EQ, élő latencia-kijelző,
-vizuális hangoló (tuner), preset-választó.
+The signal chain is mono up to the NAM stage and stereo afterwards. The NAM
+model and the Cab IR are chosen directly from the **AMP/RIG** and **CAB** panel
+drop-downs; the **AMP/RIG** panel also has a **Browse** button to import an
+external `.nam` rig, and a download link (shown until the first model is loaded).
+A LED on the **GATE** panel lights when the noise gate is ducking. 9-band
+graphic EQ, a live latency readout, a visual tuner, and a preset selector.
 
-**Pitch motorok** (a PITCH panel motorválasztójából): Signalsmith Stretch,
-RubberBand Stretcher (R3 „Finer"), és **RubberBand LiveShifter (v4)** — ez az
-alapértelmezett, a legkisebb latenciára. Cél: −4 félhang power chordokra jó
-minőségben, minimális késleltetéssel.
+**Pitch engines** (from the PITCH panel's engine selector): Signalsmith Stretch,
+RubberBand Stretcher (R3 "Finer"), and **RubberBand LiveShifter (v4)** — the
+default, for the lowest latency. Goal: −4 semitone power chords at good quality
+with minimal latency.
 
-### VoiceDSP modul (ének)
-`juce::dsp::ProcessorChain`, szigorúan ebben a sorrendben:
+### VoiceDSP module (vocals)
+`juce::dsp::ProcessorChain`, strictly in this order:
 ```
 In → Input Gain → Low-Cut (90 Hz) → Noise Gate → Warmth (tanh)
    → Compressor → High-Shelf "Air" (6 kHz) → Delay → Reverb → Brickwall Limiter → Out
 ```
-A GATE és a COMP panel aktivitás-LED-et kap (kigyullad némításkor / vágáskor).
-| Modul | Vezérlő | Fix beállítás |
+The GATE and COMP panels get an activity LED (lit while ducking / compressing).
+| Module | Control | Fixed setting |
 |---|---|---|
 | Input Gain | GAIN 0…+24 dB | — |
 | Low-Cut | — | 90 Hz high-pass |
 | Noise Gate | GATE −80…−20 dB | ratio 10:1, attack 2 ms, release 150 ms |
-| Warmth | WARMTH 1.0…3.0 | szinttartó tanh-szaturáció (WaveShaper) |
+| Warmth | WARMTH 1.0…3.0 | level-preserving tanh saturation (WaveShaper) |
 | Compressor | THRESH −40…0 dB, RATIO 1:1…10:1 | attack 5 ms, release 100 ms |
-| High-Shelf „Air" | AIR 0…+12 dB | 6 kHz |
+| High-Shelf "Air" | AIR 0…+12 dB | 6 kHz |
 | Delay | TIME 50…500 ms, MIX 0…50% | feedback 0.3 |
-| Reverb | MIX 0…100% | közepes hall (room/damp) |
-| Limiter | — | −0.1 dB ceiling (clip-védelem) |
+| Reverb | MIX 0…100% | medium room (room/damp) |
+| Limiter | — | −0.1 dB ceiling (clip protection) |
 
-A teljes ének lánc **nulla-latenciás**; a beállítások (összes vokál paraméter)
-megmaradnak az állapotban. A COMP/AIR/REVERB és az új GATE/WARMTH/DELAY modulok
-külön be/kikapcsolhatók.
+The whole vocal chain is **zero-latency**; all settings (every vocal parameter)
+are persisted in the state. COMP/AIR/REVERB and GATE/WARMTH/DELAY can each be
+toggled on/off.
 
-## Függőségek
+## Models / rigs (NAM) and presets
 
-A CMake `FetchContent`-tel automatikusan letölti:
-- **JUCE 8.0.4** (GPLv3 opció)
+NAM models/rigs and presets are **not bundled** with the app (commercial
+captures cannot be redistributed). They live in a user-writable folder that is
+created automatically on first launch:
+
+```
+Documents\LiveDSP\models     ← .nam models and .wav IRs
+Documents\LiveDSP\favs       ← saved presets
+```
+
+### Getting a rig to try
+
+A ready-made full rig to start with (Mesa Dual Rectifier, MW Red Modern, Mesa
+4x12 — full rig):
+
+**https://www.tone3000.com/tones/mesa-dual-rectifier-mw-red-modern-mesa-4x12-full-rig-69206**
+
+Two ways to install it:
+
+1. **Browse (easiest).** Launch LiveDSP → GuitarDSP, then on the **AMP/RIG**
+   panel click **Browse**, pick the downloaded `.nam` file, and it is copied into
+   `Documents\LiveDSP\models` and loaded automatically. (The download link on the
+   AMP/RIG panel is shown only until the first model is loaded.)
+2. **Manual copy.** Download and unzip the rig, then copy the `.nam` file(s)
+   (and any `.wav` IRs) into:
+   ```
+   %USERPROFILE%\Documents\LiveDSP\models
+   ```
+   Restart LiveDSP (or reopen GuitarDSP) and pick the model from the AMP/RIG
+   drop-down. The folder is created automatically the first time you launch the
+   app, so it is already there waiting for your files.
+
+> Many NAM captures are **"Full Rig"** type (they include the cabinet), so the
+> **Cab IR is OFF by default** (no double cab). Only enable a separate IR for an
+> "amp-only" (preamp/DI) NAM model.
+
+## Dependencies
+
+CMake `FetchContent` downloads automatically:
+- **JUCE 8.0.4** (GPLv3 option)
 - **Signalsmith Stretch** (pitch shifter, MIT)
-- **RubberBand Library v4.0.0** (Stretcher + LiveShifter, egyfájlos build, GPLv2-or-later)
+- **RubberBand Library v4.0.0** (Stretcher + LiveShifter, single-file build, GPLv2-or-later)
 - **NeuralAmpModelerCore** (+ Eigen, nlohmann/json)
 
-A repó tartalmazza:
-- **Steinberg ASIO SDK** (`ext/ASIOSDK/`, **GPLv3** variáns) — nem kell kézzel
-  letölteni. (A védjegyes Steinberg ASIO logó-artwork NEM része a repónak.)
+Bundled in the repo:
+- **Steinberg ASIO SDK** (`ext/ASIOSDK/`, **GPLv3** variant) — no manual download
+  needed. (The trademarked Steinberg ASIO logo artwork is NOT part of the repo.)
 
 ## ASIO SDK
 
-A Steinberg ASIO SDK a GPLv3 variánsa alatt **a repó része** (`ext/ASIOSDK/`),
-így a build alapból ASIO-támogatással fordul — nincs kézi letöltés. A CMake
-automatikusan megtalálja a `common/iasiodrv.h`-t. Másik SDK-útvonal
-felülírható:
+The Steinberg ASIO SDK ships in the repo under its GPLv3 variant
+(`ext/ASIOSDK/`), so the build compiles with ASIO support out of the box — no
+manual download. CMake finds `common/iasiodrv.h` automatically. To point at a
+different SDK:
 ```
 cmake -B build -G "Visual Studio 17 2022" -DLIVEDSP_ASIO_SDK_DIR="C:/SDKs/asiosdk"
 ```
 
-> ASIO nélkül is fordul (WASAPI/DirectSound fallback), de az alacsony latenciához ASIO kell.
+> The build still works without ASIO (WASAPI/DirectSound fallback), but ASIO is
+> required for low latency.
 
 ## Build (Visual Studio 2022)
 
 ```powershell
-cmake -B build -G "Visual Studio 17 2022" -A x64 -DLIVEDSP_ASIO_SDK_DIR="C:/SDKs/asiosdk"
+cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
 ```
 
-A standalone alkalmazás:
+The standalone application:
 `build/LiveDSP_artefacts/Release/Standalone/LiveDSP.exe`
 
-> Megjegyzés: a forrásfájlok UTF-8 kódolásúak; az MSVC `/utf-8` kapcsolóval fordul
-> (az ékezetes feliratok `juce::String::fromUTF8(...)`-on keresztül jelennek meg).
+> Note: the source files are UTF-8; MSVC compiles with the `/utf-8` switch.
 
-## Telepítő készítése (terjesztés)
+## Building the installer (distribution)
 
-A kész alkalmazás **next-next-finish telepítőként** adható át bármely 64-bites
-Windows gépnek. A telepítő egyetlen `.exe`, ami a programot a NAM modellekkel és
-a gyári presetekkel együtt telepíti, és **nem igényel semmilyen futtatókörnyezetet**
-a célgépen (statikus MSVC runtime → nincs Visual C++ Redistributable függőség).
+The finished app can be handed to any 64-bit Windows machine as a
+**next-next-finish installer**. It is a single `.exe` that installs the
+program and **requires no runtime** on the target machine (static MSVC runtime →
+no Visual C++ Redistributable dependency). Models/rigs are not bundled; the user
+adds them as described above.
 
-### Egyszeri előfeltétel: Inno Setup
+### One-time prerequisite: Inno Setup
 
 ```powershell
 winget install JRSoftware.InnoSetup
 ```
 
-> A `winget` és az `ISCC.exe` nincs feltétlenül a PATH-on. Ha a CMake nem találja,
-> teljes útvonallal hívd; tipikus per-user hely:
+> `winget` and `ISCC.exe` are not necessarily on PATH. If CMake cannot find it,
+> call it with a full path; a typical per-user location is
 > `%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe`.
 
-### Automatikus build (ajánlott)
+### Automatic build (recommended)
 
-A telepítő **minden Release build végén automatikusan újragenerálódik** — nincs
-külön teendő. A CMake a konfiguráláskor megkeresi az `ISCC.exe`-t, és a standalone
-build után lefordítja az `installer/LiveDSP.iss`-t.
+The installer is **rebuilt automatically at the end of every Release build** —
+nothing extra to do. CMake locates `ISCC.exe` at configure time and compiles
+`installer/LiveDSP.iss` after the standalone build.
 
 ```powershell
-cmake -B build -G "Visual Studio 17 2022" -A x64 -DLIVEDSP_ASIO_SDK_DIR="C:/SDKs/asiosdk"
+cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
-# -> installer/Output/LiveDSP-Setup-<verzió>.exe  (~17 MB)
+# -> installer/Output/LiveDSP-Setup-<version>.exe
 ```
 
-- Csak **Release**-ben fut (Debug/inkrementális build érintetlen, gyors marad).
-- Ha az Inno Setup nincs telepítve, a build sikeres marad, csak a telepítőt hagyja ki.
-- Kikapcsolható: `cmake -B build -DLIVEDSP_BUILD_INSTALLER=OFF`.
-- A verzió a `project(LiveDSP VERSION ...)`-ból jön (a CMake adja át az `.iss`-nek).
+- Runs only in **Release** (Debug/incremental builds are untouched and stay fast).
+- If Inno Setup is not installed, the build still succeeds; only the installer is skipped.
+- Disable with: `cmake -B build -DLIVEDSP_BUILD_INSTALLER=OFF`.
+- The version comes from `project(LiveDSP VERSION ...)` (CMake passes it to the `.iss`).
 
-### Kézi build (Inno Setup nélküli CMake esetén)
+### Manual build
 
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer\LiveDSP.iss
 ```
 
-### Telepítés a célgépen (végfelhasználó)
+### Installing on the target machine (end user)
 
-1. Másold át a `LiveDSP-Setup-<verzió>.exe`-t a másik PC-re, és futtasd → **Tovább → Tovább → Befejezés**.
-   (A Program Files-ba telepítés adminjogot kér; Start menü ikon, opcionálisan asztali ikon.)
-2. Indítsd a **LiveDSP**-t, a landing képernyőn válassz **GuitarDSP** vagy **VoiceDSP** modult.
-3. **Audio Settings** → válaszd a hangkártya **ASIO** driverét, és állíts alacsony puffert.
+1. Copy `LiveDSP-Setup-<version>.exe` to the other PC and run it → **Next →
+   Next → Finish**. (Installing into Program Files requires admin; you get a
+   Start-menu icon and, optionally, a desktop icon.)
+2. Launch **LiveDSP** and pick **GuitarDSP** or **VoiceDSP** on the landing screen.
+3. **Audio Settings** → choose the interface's **ASIO** driver and set a low buffer size.
+4. Add a rig/model as described in **Models / rigs** above.
 
-> **ASIO a célgépen:** az alacsony latenciához a célgépen is kell egy ASIO driver.
-> Ha a hangkártyának van saját ASIO drivere (pl. Focusrite), azt használd. Ha
-> nincs, az ingyenes [ASIO4ALL](https://asio4all.org) univerzális drivert
-> telepítheted — a telepítő egy **opcionális jelölőnégyzetben** felajánlja, hogy a
-> végén megnyitja az ASIO4ALL **hivatalos letöltőoldalát** (magát az ASIO4ALL-t a
-> telepítő nem terjeszti, mert a szerző nem ad nyilvános újraterjesztési engedélyt).
-> ASIO nélkül a WASAPI fallback működik, nagyobb késleltetéssel.
+> **ASIO on the target machine:** low latency needs an ASIO driver there too. If
+> the interface has its own ASIO driver (e.g. Focusrite Scarlett Solo), use it.
+> Otherwise you can install the free [ASIO4ALL](https://asio4all.org) universal
+> driver — the installer offers, in an **optional checkbox**, to open the
+> **official ASIO4ALL download page** at the end (ASIO4ALL itself is not
+> redistributed by the installer, as the author grants no public redistribution
+> permission). Without ASIO the WASAPI fallback works, at higher latency.
 
-### Mit csomagol / hogyan tölti be a modelleket
+## Testing
 
-A telepítő a `models/` (NAM + IR) és `favs/` (presetek) mappát az `.exe` mellé
-teszi. Az app futásidőben az [`source/AppPaths.h`](source/AppPaths.h) szerint old fel:
-**előbb az exe melletti mappát** nézi (telepített eset), majd fejlesztéskor a
-build-időben befordított forrásmappára (`LIVEDSP_DEFAULT_MODELS_DIR` /
-`LIVEDSP_FAVS_DIR`) esik vissza — így az IDE-ből és a telepített buildből is működik.
+1. Launch the standalone `.exe` and pick **GuitarDSP** or **VoiceDSP** on the landing screen.
+2. Audio Settings (Options) → choose the Focusrite **ASIO** driver and set a low buffer (64/128).
+3. On the INPUT panel, select the correct input channel (guitar / microphone separately).
+4. Use the "‹ MENU" button to go back and switch modes at any time.
 
-## Modellek / IR
+## Architecture (in brief)
 
-A `models/` mappa tartalma indításkor automatikusan elérhető (az első `.nam`
-modell betöltődik). A mappa **git-ignorált** (lokális, kereskedelmi captúrák).
-
-> A jelenlegi NAM modellek **„Full Rig"** típusúak (tartalmazzák a hangládát),
-> ezért a **Cab IR alapból KI van kapcsolva** (nincs dupla cab). Külön IR-t csak
-> „amp-only" (preamp/DI) NAM modellhez kapcsolj be.
-
-## Tesztelés
-
-1. Indítsd a standalone `.exe`-t, a landing képernyőn válassz **GuitarDSP** vagy **VoiceDSP** modult.
-2. Audio Settings (Options) → válaszd a Focusrite **ASIO** drivert, állíts alacsony puffert (64/128).
-3. Az INPUT panelen állítsd be a megfelelő bemeneti csatornát (gitár / mikrofon külön).
-4. A „‹ MENÜ" gombbal bármikor visszaléphetsz és módot válthatsz.
-
-## Architektúra (röviden)
-
-- `LiveDspProcessor` (egy `juce::AudioProcessor`): mindkét DSP láncot tartalmazza,
-  futás közben váltható `appMode` (none/guitar/voice) irányítja a `processBlock`-ot.
-- `LiveDspEditor`: vékony shell, ami a mód szerint egy `AppView`-t mutat
+- `LiveDspProcessor` (a single `juce::AudioProcessor`): contains both DSP chains;
+  a runtime-switchable `appMode` (none/guitar/voice) drives `processBlock`.
+- `LiveDspEditor`: a thin shell that shows an `AppView` per mode
   (`LandingView` / `GuitarView` / `VoiceView`).
-- DSP modulok: `source/dsp/` (NoiseGate, Overdrive, PitchShifter, NamProcessor,
-  CabConvolver, Equalizer, VoiceChain). UI: `source/ui/` (közös `LiveLookAndFeel` + panelek).
+- DSP modules: `source/dsp/` (NoiseGate, Overdrive, PitchShifter, NamProcessor,
+  CabConvolver, Equalizer, VoiceChain). UI: `source/ui/` (shared `LiveLookAndFeel` + panels).
 
-## Licenc
+## License
 
-A LiveDSP a **GNU General Public License v3.0** (GPLv3) alatt érhető el — lásd a
-[LICENSE](LICENSE) fájlt. Ezt a GPL függőségek teszik szükségessé (JUCE GPLv3
-opció, Rubber Band GPLv2-or-later, Steinberg ASIO SDK GPLv3). A harmadik féltől
-származó komponensek és licenceik a [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
-fájlban szerepelnek.
+LiveDSP is distributed under the **GNU General Public License v3.0** (GPLv3) —
+see the [LICENSE](LICENSE) file. This is required by the GPL dependencies (JUCE
+under its GPLv3 option, Rubber Band GPLv2-or-later, Steinberg ASIO SDK GPLv3).
+The third-party components and their licenses are listed in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
-> Az „ASIO” név és logó a **Steinberg** védjegye, amelyre a GPL nem terjed ki; a
-> LiveDSP nem használja a nevet termék-/cégnévben, és nem terjeszti a logót.
+> The "ASIO" name and logo are **Steinberg** trademarks not covered by the GPL;
+> LiveDSP does not use the name in its product/company name and does not
+> redistribute the logo.
 
-## Köszönet (ikonok)
+## Credits (icons)
 
-- A landing gitár-ikon: [game-icons.net](https://game-icons.net) (lorc), **CC BY 3.0**.
-- A landing mikrofon-ikon: [Phosphor Icons](https://phosphoricons.com) (microphone-stage), **MIT**.
+- Landing guitar icon: [game-icons.net](https://game-icons.net) (lorc), **CC BY 3.0**.
+- Landing microphone icon: [Phosphor Icons](https://phosphoricons.com) (microphone-stage), **MIT**.

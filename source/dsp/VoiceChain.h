@@ -4,26 +4,26 @@
 #include <cmath>
 
 /**
-    Élő ének-feldolgozó lánc halk dinamikus mikrofonhoz (pl. Shure SM58) +
-    Focusrite Scarlett hangkártyához. Alacsony latenciás, nulla-latenciás
-    feldolgozó elemekből — kifejezetten live monitorozáshoz.
+    Live vocal processing chain for a quiet dynamic microphone (e.g. Shure SM58) +
+    Focusrite Scarlett audio interface. Built from low-latency, zero-latency
+    processing elements — specifically for live monitoring.
 
-    A jelút SZIGORÚAN ebben a sorrendben (juce::dsp::ProcessorChain):
-      1. Input Gain  — digitális előerősítő (0 .. +24 dB).
-      2. Low-Cut     — high-pass szűrő, FIXEN 90 Hz.
-      3. Noise Gate  — a szűrő után; küszöb (-80..-20 dB), ratio 10:1 / attack
-                       2 ms / release 150 ms FIX.
-      4. Warmth      — finom tanh-szaturáció (WaveShaper); WARMTH = drive 1..3,
-                       szinttartó (pre-gain -> tanh -> post-gain 1/drive).
-      5. Compressor  — Threshold/Ratio állítható, attack 5 ms / release 100 ms FIX.
-      6. High-Shelf  — FIXEN 6 kHz "air/presence" (0 .. +12 dB).
-      7. Delay       — egyszerű delay; TIME 50..500 ms, MIX 0..50%, feedback 0.3 FIX.
-      8. Reverb      — közepes hall (FIX room/damp), Wet/Dry mix (0..100%).
-      9. Limiter     — brickwall a lánc legvégén, FIX -0.1 dB ceiling.
+    The signal chain STRICTLY in this order (juce::dsp::ProcessorChain):
+      1. Input Gain  — digital preamp (0 .. +24 dB).
+      2. Low-Cut     — high-pass filter, FIXED at 90 Hz.
+      3. Noise Gate  — after the filter; threshold (-80..-20 dB), ratio 10:1 / attack
+                       2 ms / release 150 ms FIXED.
+      4. Warmth      — subtle tanh saturation (WaveShaper); WARMTH = drive 1..3,
+                       level-preserving (pre-gain -> tanh -> post-gain 1/drive).
+      5. Compressor  — Threshold/Ratio adjustable, attack 5 ms / release 100 ms FIXED.
+      6. High-Shelf  — FIXED 6 kHz "air/presence" (0 .. +12 dB).
+      7. Delay       — simple delay; TIME 50..500 ms, MIX 0..50%, feedback 0.3 FIXED.
+      8. Reverb      — medium reverb (FIXED room/damp), Wet/Dry mix (0..100%).
+      9. Limiter     — brickwall at the very end of the chain, FIXED -0.1 dB ceiling.
 
-    Sztereó blokkon dolgozik (a mono mikrofonjel mindkét csatornára másolva).
-    A prepare/reset ÜZENETSZÁLRÓL hívandó; a setterek a process előtt (a hang-
-    szálon) futnak, ezért egyszerű (nem-atomikus) tagok elegendők.
+    Operates on a stereo block (the mono microphone signal copied to both channels).
+    prepare/reset must be called FROM THE MESSAGE THREAD; the setters run before
+    process (on the audio thread), so simple (non-atomic) members are sufficient.
 */
 class VoiceChain
 {
@@ -36,28 +36,28 @@ public:
         updateLowCut();
         updateAir();
 
-        // Noise gate: magas ratio, gyors attack, közepes release (FIX).
+        // Noise gate: high ratio, fast attack, medium release (FIXED).
         auto& gate = chain.get<gateIdx>();
         gate.setRatio   (10.0f);
         gate.setAttack  (2.0f);
         gate.setRelease (150.0f);
 
-        // Warmth: a WaveShaper FIX tanh-függvény; az "amount"-ot a pre/post gain adja.
+        // Warmth: the WaveShaper is a FIXED tanh function; the "amount" comes from the pre/post gain.
         chain.get<shaperIdx>().functionToUse = [] (float x) { return std::tanh (x); };
         applyWarmth();
 
-        // Compressor: gyors attack, közepes release (FIX).
+        // Compressor: fast attack, medium release (FIXED).
         auto& comp = chain.get<compIdx>();
         comp.setAttack  (5.0f);
         comp.setRelease (100.0f);
 
-        // Delay buffer biztonságos maximuma (2 mp) a tényleges SR-hez.
+        // Safe maximum for the delay buffer (2 s) at the actual sample rate.
         auto& dly = chain.get<delayIdx>();
         dly.prepareDelay (sampleRate, (int) spec.maximumBlockSize);
 
         updateReverb();
 
-        // Brickwall limiter a lánc végén: FIX -0.1 dB ceiling.
+        // Brickwall limiter at the end of the chain: FIXED -0.1 dB ceiling.
         auto& lim = chain.get<limIdx>();
         lim.setThreshold (-0.1f);
         lim.setRelease   (50.0f);
@@ -68,7 +68,7 @@ public:
     void reset() { chain.reset(); }
 
     //==============================================================================
-    // Élő paraméter-beállítók (a hangszálon futnak, a process előtt).
+    // Live parameter setters (run on the audio thread, before process).
     void setInputGainDb (float db) noexcept
     {
         chain.get<gainIdx>().setGainDecibels (db);
@@ -91,14 +91,14 @@ public:
     void setDelayTimeMs (float ms)  noexcept { chain.get<delayIdx>().timeMs = juce::jlimit (50.0f, 500.0f, ms); }
     void setDelayMix    (float mix) noexcept { chain.get<delayIdx>().mix    = juce::jlimit (0.0f, 0.5f, mix); }
 
-    // mix: 0..1 (Wet/Dry arány).
+    // mix: 0..1 (Wet/Dry ratio).
     void setReverbMix (float mix) noexcept
     {
         mix = juce::jlimit (0.0f, 1.0f, mix);
         if (mix != reverbMix) { reverbMix = mix; updateReverb(); }
     }
 
-    // Bypass-kapcsolók (a ProcessorChain elemenként megkerülhető).
+    // Bypass switches (the ProcessorChain can be bypassed element by element).
     void setGateEnabled   (bool b) noexcept { chain.setBypassed<gateIdx>   (! b); gateOn = b; }
     void setWarmthEnabled (bool b) noexcept
     {
@@ -113,36 +113,36 @@ public:
     void setReverbEnabled (bool b) noexcept { chain.setBypassed<revIdx>   (! b); }
 
     //==============================================================================
-    // Kijelző-célú mérők a UI LED-ekhez (a hangot NEM érintik): a kapu aktuális
-    // (becsült) gain-je 0..1 (0 = némít), és a kompresszor becsült gain-csökkentése
-    // 0..1 (0 = nincs vágás). Üzenetszálról olvasandó.
+    // Display-only meters for the UI LEDs (they do NOT affect the audio): the gate's
+    // current (estimated) gain 0..1 (0 = muted), and the compressor's estimated gain
+    // reduction 0..1 (0 = no compression). To be read from the message thread.
     float getGateGain()      const noexcept { return gateDisp.load(); }
     float getCompReduction() const noexcept { return compDisp.load(); }
 
     //==============================================================================
     void process (juce::dsp::AudioBlock<float> block) noexcept
     {
-        updateMeters (block);   // a feldolgozás ELŐTT (a bemeneti szintből)
+        updateMeters (block);   // BEFORE processing (from the input level)
         juce::dsp::ProcessContextReplacing<float> ctx (block);
         chain.process (ctx);
     }
 
 private:
     //==========================================================================
-    /** Egyszerű sztereó delay effekt a ProcessorChain-be illesztve (juce::dsp::
-        DelayLine + wet/dry mix + FIX feedback). A time/mix tagok a hangszálon
-        állítódnak a process előtt. */
+    /** Simple stereo delay effect inserted into the ProcessorChain (juce::dsp::
+        DelayLine + wet/dry mix + FIXED feedback). The time/mix members are set on
+        the audio thread before process. */
     struct VocalDelay
     {
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> line { 96000 };
         double sr  { 48000.0 };
         float  timeMs { 200.0f };
         float  mix    { 0.12f };
-        static constexpr float feedback = 0.3f;   // FIX, hogy ne gerjedjen
+        static constexpr float feedback = 0.3f;   // FIXED, to avoid runaway feedback
 
         void prepare (const juce::dsp::ProcessSpec& spec) { sr = spec.sampleRate; }
 
-        // A maximális delay-puffer biztonságos beállítása (2 mp) + prepare.
+        // Safely set the maximum delay buffer (2 s) + prepare.
         void prepareDelay (double sampleRate, int maxBlock)
         {
             sr = sampleRate;
@@ -180,8 +180,8 @@ private:
         }
     };
 
-    // Kijelző-mérő frissítése a bemeneti szintből (a feldolgozás előtt). Csak a
-    // LED-ekhez ad becslést — a tényleges gate/comp a chainben dolgozik.
+    // Update the display meter from the input level (before processing). It only
+    // provides an estimate for the LEDs — the actual gate/comp operates in the chain.
     void updateMeters (const juce::dsp::AudioBlock<float>& block) noexcept
     {
         const int n = (int) block.getNumSamples();
@@ -193,18 +193,18 @@ private:
         for (int i = 0; i < n; ++i)
             peak = juce::jmax (peak, std::abs (d[i]));
 
-        const float lvl = peak * gainLin;                 // a gate-et érő szint becslése
-        if (lvl > dispEnv) dispEnv = lvl;                 // gyors fel
-        else               dispEnv = dispEnv * 0.9f + lvl * 0.1f;  // lassú le
+        const float lvl = peak * gainLin;                 // estimate of the level reaching the gate
+        if (lvl > dispEnv) dispEnv = lvl;                 // fast rise
+        else               dispEnv = dispEnv * 0.9f + lvl * 0.1f;  // slow fall
 
         const float lvlDb = juce::Decibels::gainToDecibels (juce::jmax (1.0e-6f, dispEnv));
 
-        // Kapu: nyit, ha a szint a küszöb felett van (simítva).
+        // Gate: opens when the level is above the threshold (smoothed).
         const float gateTarget = (lvlDb > gateThrDb) ? 1.0f : 0.0f;
         gateSm = gateSm * 0.8f + gateTarget * 0.2f;
         gateDisp.store (gateOn ? gateSm : 1.0f);
 
-        // Kompresszor becsült gain-csökkentése (dB) -> 0..1 a LED-hez.
+        // Compressor's estimated gain reduction (dB) -> 0..1 for the LED.
         float redDb = 0.0f;
         if (compOn && lvlDb > compThrDb && compRatio > 1.0f)
             redDb = (lvlDb - compThrDb) * (1.0f - 1.0f / compRatio);
@@ -226,8 +226,8 @@ private:
 
     void applyWarmth()
     {
-        // Szinttartó szaturáció: pre = drive, post = 1/drive  ->  y = tanh(drive*x)/drive.
-        // Kis jelnél ≈ egységnyi (finom), nagy jelnél lágy tanh-levágás.
+        // Level-preserving saturation: pre = drive, post = 1/drive  ->  y = tanh(drive*x)/drive.
+        // At small signals ≈ unity (subtle), at large signals a soft tanh clip.
         const float d = warmthOn ? warmthDrive : 1.0f;
         chain.get<warmthPreIdx>().setGainLinear  (d);
         chain.get<warmthPostIdx>().setGainLinear (1.0f / d);
@@ -266,7 +266,7 @@ private:
     float  warmthDrive { 1.2f };
     bool   warmthOn    { true };
 
-    // Kijelző-mérő állapot (csak a hangszálon írt, a UI atomikusan olvassa).
+    // Display meter state (written only on the audio thread, read atomically by the UI).
     float gainLin   { 2.0f };
     float gateThrDb { -55.0f };
     float compThrDb { -18.0f };

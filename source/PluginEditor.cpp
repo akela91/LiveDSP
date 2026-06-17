@@ -21,10 +21,11 @@ void LiveDspEditor::showMode (int mode)
 {
     using AppMode = LiveDspProcessor::AppMode;
 
-    // A befoglaló (standalone) ablak "kerete" = ablak − szerkesztő (címsor + opciók
-    // sáv). Konstans a nézetek között; még a régi, konzisztens állapotból mérjük,
-    // hogy módváltáskor a FIX méretet rá tudjuk kényszeríteni az ablakra (különben
-    // egy korábban átméretezett gitár-ablak után a landing/vocal kinézet bugos).
+    // The enclosing (standalone) window's "chrome" = window − editor (title bar +
+    // options bar). Constant across views; we measure it while still in the old,
+    // consistent state so that on a mode change we can force the FIXED size onto the
+    // window (otherwise, after a previously resized guitar window, the landing/vocal
+    // layout is buggy).
     int chromeW = 0, chromeH = 0;
     if (auto* top = getTopLevelComponent(); top != nullptr && top != this)
     {
@@ -53,7 +54,7 @@ void LiveDspEditor::showMode (int mode)
         view = std::move (landing);
     }
 
-    // Közös callbackek minden nézetre.
+    // Shared callbacks for every view.
     view->onBackToMenu = [this]
     {
         processorRef.setAppMode ((int) AppMode::none);
@@ -68,9 +69,9 @@ void LiveDspEditor::showMode (int mode)
     if (resiz)
         setResizeLimits (900, 440, 1500, 1000);
     else
-        // FONTOS: a nem-átméretezhető nézetnél FIX korlát, különben egy korábbi
-        // gitár-mód (min 900x440) korlátja clamp-elné a kisebb cél-méretet, az
-        // ablak nem méreteződne át, és a nézet ÜRESEN maradna (lásd bug).
+        // IMPORTANT: for a non-resizable view use a FIXED limit, otherwise a previous
+        // guitar mode's (min 900x440) limit would clamp the smaller target size, the
+        // window would not resize, and the view would stay EMPTY (see bug).
         setResizeLimits (view->defaultWidth(), view->defaultHeight(),
                          view->defaultWidth(), view->defaultHeight());
 
@@ -79,9 +80,9 @@ void LiveDspEditor::showMode (int mode)
     else
         setSize (view->defaultWidth(), view->defaultHeight());
 
-    // MINDIG elrendezzük az aktuális nézetet — akkor is, ha az ablakméret nem
-    // változott (különben a frissen létrehozott nézet panelei 0 mérettel,
-    // azaz üresen jelennének meg).
+    // ALWAYS lay out the current view — even if the window size did not change
+    // (otherwise the freshly created view's panels would appear with 0 size, i.e.
+    // empty).
     resized();
 }
 

@@ -8,12 +8,12 @@
 #include "AppView.h"
 
 /**
-    Gitár nézet: a teljes GuitarDSP amp-szimulátor UI (felső sáv cím + modell-
-    és preset-választó + tuner + "menü" gomb, moduláris panelek a jelút
-    sorrendjében, 9-sávos EQ, élő latencia-kijelző).
+    Guitar view: the full GuitarDSP amp-simulator UI (top bar with title + model
+    and preset selectors + tuner + "menu" button, modular panels in signal-chain
+    order, 9-band EQ, live latency readout).
 
-    Korábban ez maga a LiveDspEditor volt; mostantól egy AppView, amelyet a
-    shell-szerkesztő gitár módban mutat.
+    This used to be the LiveDspEditor itself; it is now an AppView that the shell
+    editor shows in guitar mode.
 */
 class GuitarView : public AppView,
                    private juce::Timer
@@ -32,6 +32,7 @@ public:
 private:
     void buildPanels();
     void populateAmpModels();
+    void importAmpModel (const juce::File& source);   // copy an external .nam in and load it
     void populateCabIrs();
     void populatePresetSelector();
     void updateStatusLabel();
@@ -45,12 +46,12 @@ private:
     juce::Label      statusLabel;
     juce::Label      latencyLabel;
     juce::TextButton tunerButton { "TUNER" };
-    juce::TextButton menuButton  { juce::String::fromUTF8 ("‹ MENÜ") };
+    juce::TextButton menuButton  { juce::String::fromUTF8 ("‹ MENU") };
     TunerComponent   tuner;
 
     juce::OwnedArray<PanelBase> row1, row2;
 
-    // A modell/IR választó combók ezekben a panelekben élnek (a fájl-logika itt).
+    // The model/IR selector combo boxes live inside these panels (file logic stays here).
     ComboPanel*  ampPanel  { nullptr };
     ComboPanel*  cabPanel  { nullptr };
     ModulePanel* gatePanel { nullptr };

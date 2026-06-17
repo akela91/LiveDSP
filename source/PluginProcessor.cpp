@@ -5,8 +5,8 @@
 //==============================================================================
 LiveDspProcessor::LiveDspProcessor()
     : juce::AudioProcessor (BusesProperties()
-        // Sztereó bemenet: a standalone az interfész 2 csatornáját adja
-        // (Input 1+2); a processBlock keveri monóba a gitár jelutat.
+        // Stereo input: the standalone provides the interface's 2 channels
+        // (Input 1+2); processBlock mixes the guitar signal chain down to mono.
         .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
         .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "PARAMS", createParameterLayout())
@@ -52,24 +52,24 @@ LiveDspProcessor::LiveDspProcessor()
     pVocReverbOn   = apvts.getRawParameterValue ("vocReverbOn");
     pVocReverbMix  = apvts.getRawParameterValue ("vocReverbMix");
 
-    // A pitch-latencia élő újrakonfigurálása (üzenetszálon).
+    // Live reconfiguration of the pitch latency (on the message thread).
     apvts.addParameterListener ("pitchLatency", this);
-    // Motorváltáskor a pitch shifter állapotát üzenetszálon resetelni kell.
+    // On an engine switch, the pitch shifter state must be reset on the message thread.
     apvts.addParameterListener ("pitchEngine", this);
-    // Az RB Live minőségprofil élő újrakonfigurálása (üzenetszálon).
+    // Live reconfiguration of the RB Live quality profile (on the message thread).
     apvts.addParameterListener ("pitchLiveQuality", this);
 
-    // Fejlesztői kényelem: az alapértelmezett models/ mappából betöltjük az
-    // első NAM modellt és IR-t MÁR a konstruktorban (az editor előtt), hogy a
-    // státusz helyesen jelenjen meg és azonnal szóljon. A loadModel itt a
-    // tag-alapértelmezett SR-rel Reset-el; a prepareToPlay később újra Reset-el
-    // a valódi mintavételi frekvenciával.
+    // Development convenience: load the first NAM model and IR from the default
+    // models/ folder ALREADY in the constructor (before the editor), so that the
+    // status is displayed correctly and it produces sound immediately. loadModel here
+    // resets with the member-default sample rate; prepareToPlay later resets again
+    // with the real sample rate.
     if (auto modelsDir = livedsp::getModelsDir(); modelsDir.isDirectory())
     {
         auto namFiles = modelsDir.findChildFiles (juce::File::findFiles, true, "*.nam");
         if (! namFiles.isEmpty())
         {
-            // Preferált alapértelmezett modell; ha nincs meg, az első.
+            // Preferred default model; if not found, the first one.
             const juce::String preferred = "FR OD808 MBDR MW Red Mdn - 1 - 4FB LR SM57a";
             juce::File toLoad = namFiles.getFirst();
             for (const auto& f : namFiles)
@@ -79,7 +79,7 @@ LiveDspProcessor::LiveDspProcessor()
 
         auto irFiles = modelsDir.findChildFiles (juce::File::findFiles, true, "*.wav");
         if (! irFiles.isEmpty())
-            cab.loadIR (irFiles.getFirst());   // betöltve, de a Cab alapból OFF
+            cab.loadIR (irFiles.getFirst());   // loaded, but the Cab is OFF by default
     }
 }
 
@@ -109,18 +109,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout LiveDspProcessor::createPara
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "pitchOn", 1 }, "Pitch On", false));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "pitchSemitones", 1 },
         "Transpose", NormalisableRange<float> { -12.0f, 12.0f, 1.0f }, 0.0f));
-    // Pitch latencia/minőség: kisebb = kisebb latencia (több műtermék),
-    // nagyobb = jobb minőség (nagyobb latencia). Élőben átkonfigurálja a motort.
+    // Pitch latency/quality: lower = lower latency (more artifacts),
+    // higher = better quality (higher latency). Reconfigures the engine live.
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "pitchLatency", 1 },
         "Pitch Latency", NormalisableRange<float> { 8.0f, 80.0f, 1.0f }, 40.0f));
-    // Pitch motor (alapértelmezés: RubberBand): 0 = Signalsmith (állítható
-    // latencia), 1 = Rubber Band Stretcher (R3 'Finer', jó polifonikus minőség),
-    // 2 = Rubber Band LiveShifter (v4, legkisebb latencia). A 'pitchLatency'
-    // knob csak a Signalsmith motorra hat.
+    // Pitch engine (default: RubberBand): 0 = Signalsmith (adjustable
+    // latency), 1 = Rubber Band Stretcher (R3 'Finer', good polyphonic quality),
+    // 2 = Rubber Band LiveShifter (v4, lowest latency). The 'pitchLatency'
+    // knob only affects the Signalsmith engine.
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "pitchEngine", 1 },
         "Pitch Engine", StringArray { "Signalsmith", "RubberBand", "RB Live" }, 2));
-    // RB Live minőségprofil (csak az RB Live motorra hat): Fast = legkisebb
-    // latencia (rövid ablak), Fine = jobb minőség (közepes ablak + formant).
+    // RB Live quality profile (only affects the RB Live engine): Fast = lowest
+    // latency (short window), Fine = better quality (medium window + formant).
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "pitchLiveQuality", 1 },
         "RB Live Quality", StringArray { "Fast", "Fine" }, 0));
 
@@ -136,7 +136,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LiveDspProcessor::createPara
     // Amp (NAM)
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "namOn", 1 }, "Amp On", true));
 
-    // EQ (alacsony latenciás, 9-sávos grafikus IIR) — Cab után
+    // EQ (low-latency, 9-band graphic IIR) — after the Cab
     layout.add (std::make_unique<AudioParameterBool> (ParameterID { "eqOn", 1 }, "EQ On", false));
     for (int i = 0; i < Equalizer::numBands; ++i)
     {
@@ -148,7 +148,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LiveDspProcessor::createPara
             ParameterID { "eqBand" + juce::String (i), 1 }, label, db (-15.0f, 15.0f), 0.0f));
     }
 
-    // Cab IR (alapból OFF a Full Rig modellek miatt)
+    // Cab IR (OFF by default because of the Full Rig models)
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "cabOn", 1 }, "Cab On", false));
 
     // Delay
@@ -166,42 +166,42 @@ juce::AudioProcessorValueTreeState::ParameterLayout LiveDspProcessor::createPara
         "Reverb", NormalisableRange<float> { 0.0f, 1.0f, 0.01f }, 0.25f));
 
     //==========================================================================
-    // ÉNEK (Vocal) mód paraméterei
+    // VOCALS (Vocal) mode parameters
     //==========================================================================
-    // Input Gain: digitális előerősítő a halk dinamikus mikrofonhoz (0..+24 dB).
+    // Input Gain: digital preamp for the quiet dynamic microphone (0..+24 dB).
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocGain", 1 },
         "Vocal Gain", NormalisableRange<float> { 0.0f, 24.0f, 0.1f }, 6.0f));
 
-    // Noise Gate a low-cut után (ratio 10:1 / attack 2 ms / release 150 ms FIX).
+    // Noise Gate after the low-cut (ratio 10:1 / attack 2 ms / release 150 ms FIXED).
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocGateOn", 1 }, "Vocal Gate On", true));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocGateThresh", 1 },
         "Vocal Gate", NormalisableRange<float> { -80.0f, -20.0f, 0.1f }, -55.0f));
 
-    // Warmth / Saturation (tanh WaveShaper); WARMTH = drive 1.0..3.0 (finom).
+    // Warmth / Saturation (tanh WaveShaper); WARMTH = drive 1.0..3.0 (subtle).
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocWarmthOn", 1 }, "Vocal Warmth On", true));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocWarmth", 1 },
         "Vocal Warmth", NormalisableRange<float> { 1.0f, 3.0f, 0.01f }, 1.2f));
 
-    // Compressor (Attack 5 ms / Release 100 ms FIX a motorban).
+    // Compressor (Attack 5 ms / Release 100 ms FIXED in the engine).
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocCompOn", 1 }, "Vocal Comp On", true));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocCompThresh", 1 },
         "Vocal Comp Threshold", NormalisableRange<float> { -40.0f, 0.0f, 0.1f }, -18.0f));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocCompRatio", 1 },
         "Vocal Comp Ratio", NormalisableRange<float> { 1.0f, 10.0f, 0.1f }, 3.0f));
 
-    // High-Shelf "air/presence" (6 kHz FIX, 0..+12 dB emelés).
+    // High-Shelf "air/presence" (6 kHz FIXED, 0..+12 dB boost).
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocAirOn", 1 }, "Vocal Air On", true));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocAir", 1 },
         "Vocal Air", NormalisableRange<float> { 0.0f, 12.0f, 0.1f }, 3.0f));
 
-    // Delay (feedback 0.3 FIX); TIME 50..500 ms, MIX 0..50%.
+    // Delay (feedback 0.3 FIXED); TIME 50..500 ms, MIX 0..50%.
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocDelayOn", 1 }, "Vocal Delay On", true));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocDelayTime", 1 },
         "Vocal Delay Time", NormalisableRange<float> { 50.0f, 500.0f, 1.0f }, 200.0f));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocDelayMix", 1 },
         "Vocal Delay Mix", NormalisableRange<float> { 0.0f, 50.0f, 1.0f }, 12.0f));
 
-    // Reverb Wet/Dry mix (0..100%); room/damp FIX a motorban.
+    // Reverb Wet/Dry mix (0..100%); room/damp FIXED in the engine.
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocReverbOn", 1 }, "Vocal Reverb On", true));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocReverbMix", 1 },
         "Vocal Reverb Mix", NormalisableRange<float> { 0.0f, 100.0f, 1.0f }, 20.0f));
@@ -228,10 +228,10 @@ void LiveDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     cab.prepare (stereoSpec);
     eq.prepare (stereoSpec);
 
-    // Ének lánc sztereó blokkon dolgozik (mono mikrofon mindkét csatornán).
+    // The vocals chain works on a stereo block (mono microphone on both channels).
     vocal.prepare (stereoSpec);
 
-    // A delay max hossza a tényleges SR-hez igazítva (max paraméter 1500 ms + tartalék).
+    // Max delay length aligned to the actual sample rate (max parameter 1500 ms + headroom).
     delayLine.setMaximumDelayInSamples ((int) (sampleRate * 2.0) + samplesPerBlock);
     delayLine.prepare (stereoSpec);
     delayLine.reset();
@@ -249,13 +249,13 @@ void LiveDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     tunerRing.assign ((size_t) tunerRingSize, 0.0f);
     tunerWrite.store (0, std::memory_order_relaxed);
 
-    // Pitch + (Cab IR zero-latency = 0) latencia jelzése a hostnak.
+    // Report Pitch + (Cab IR zero-latency = 0) latency to the host.
     setLatencySamples (pitchShifter.getLatencySamples());
 }
 
 bool LiveDspProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    // Mono vagy sztereó bemenet, sztereó kimenet.
+    // Mono or stereo input, stereo output.
     const auto& out = layouts.getMainOutputChannelSet();
     const auto& in  = layouts.getMainInputChannelSet();
 
@@ -306,7 +306,7 @@ void LiveDspProcessor::updateParametersFromApvts() noexcept
 
 void LiveDspProcessor::parameterChanged (const juce::String& parameterID, float newValue)
 {
-    // Standalone UI-ból üzenetszálon hívódik -> biztonságos újrakonfigurálni.
+    // Called from the standalone UI on the message thread -> safe to reconfigure.
     if (parameterID == "pitchLatency")
     {
         pitchShifter.setBlockMs ((double) newValue);
@@ -314,14 +314,14 @@ void LiveDspProcessor::parameterChanged (const juce::String& parameterID, float 
     }
     else if (parameterID == "pitchEngine")
     {
-        // Tiszta váltás: a kiválasztott motor + FIFO állapotát kiürítjük.
+        // Clean switch: clear the selected engine + FIFO state.
         pitchShifter.setEngine ((int) newValue);
         pitchShifter.reset();
     }
     else if (parameterID == "pitchLiveQuality")
     {
-        // RB Live profilváltás: a shiftert újra kell építeni (ablakopció a
-        // konstruktorban dől el), ezért üzenetszálon reconfiguráljuk.
+        // RB Live profile switch: the shifter must be rebuilt (the window option is
+        // decided in the constructor), so we reconfigure it on the message thread.
         pitchShifter.setLiveQuality ((int) newValue);
         pitchShifter.reconfigureLive();
     }
@@ -338,7 +338,7 @@ void LiveDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         case AppMode::vocal:  processVocal  (buffer); return;
         case AppMode::none:
         default:
-            // Landing képernyő: nincs feldolgozás, néma kimenet.
+            // Landing screen: no processing, silent output.
             buffer.clear();
             return;
     }
@@ -352,9 +352,9 @@ void LiveDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexcept
 
     updateParametersFromApvts();
 
-    // --- Mono jelút felépítése --------------------------------------------
-    // CSAK a kiválasztott bemeneti csatornát vesszük (nem keverünk össze minden
-    // bemenetet) — így a mikrofon nem szivárog be a gitár láncba.
+    // --- Build the mono signal chain --------------------------------------
+    // We take ONLY the selected input channel (we do not mix all the
+    // inputs together) — so the microphone does not leak into the guitar chain.
     const int gCh = juce::jlimit (0, juce::jmax (0, numIn - 1), guitarInputCh.load());
     monoBuffer.setSize (1, numSamples, false, false, true);
     monoBuffer.clear();
@@ -362,7 +362,7 @@ void LiveDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexcept
     if (numIn > 0)
         monoBuffer.copyFrom (0, 0, buffer, gCh, 0, numSamples);
 
-    // Nyers (pre-gain) bemenet rögzítése a hangolóhoz.
+    // Capture the raw (pre-gain) input for the tuner.
     if (! tunerRing.empty())
     {
         int w = tunerWrite.load (std::memory_order_relaxed);
@@ -389,8 +389,8 @@ void LiveDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexcept
     // 5) Amp (NAM)
     nam.process (mono, numSamples);
 
-    // Ha az Amp ki van kapcsolva, NEM engedjük át a nyers (clean) jelet:
-    // az amp a hangforrás, így amp nélkül néma a kimenet (nem "direct monitor").
+    // If the Amp is switched off, we do NOT let the raw (clean) signal through:
+    // the amp is the sound source, so without the amp the output is silent (not "direct monitor").
     if (pNamOn->load() <= 0.5f)
         monoBuffer.clear();
 
@@ -400,13 +400,13 @@ void LiveDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexcept
 
     juce::dsp::AudioBlock<float> block (buffer);
 
-    // 6) Cab IR (zero-latency, bypassolható)
+    // 6) Cab IR (zero-latency, bypassable)
     cab.process (block);
 
-    // 6b) EQ (alacsony latenciás IIR, Cab után)
+    // 6b) EQ (low-latency IIR, after the Cab)
     eq.process (block);
 
-    // 7) Delay (sztereó, visszacsatolással)
+    // 7) Delay (stereo, with feedback)
     {
         delayLine.setDelay ((float) (pDelayTime->load() * 0.001 * currentSampleRate));
         for (int ch = 0; ch < numOut; ++ch)
@@ -424,7 +424,7 @@ void LiveDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexcept
         }
     }
 
-    // 8) Reverb (sztereó)
+    // 8) Reverb (stereo)
     {
         juce::dsp::ProcessContextReplacing<float> ctx (block);
         reverb.process (ctx);
@@ -464,8 +464,8 @@ void LiveDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
 
     updateVocalFromApvts();
 
-    // Mono mikrofonjel: CSAK a kiválasztott bemeneti csatorna (a mic melyik
-    // Scarlett bemeneten van), majd minden kimenetre másoljuk.
+    // Mono microphone signal: ONLY the selected input channel (which Scarlett
+    // input the mic is on), then we copy it to every output.
     const int vCh = juce::jlimit (0, juce::jmax (0, numIn - 1), vocalInputCh.load());
     monoBuffer.setSize (1, numSamples, false, false, true);
     monoBuffer.clear();
@@ -476,7 +476,7 @@ void LiveDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
     for (int ch = 0; ch < numOut; ++ch)
         buffer.copyFrom (ch, 0, mono, numSamples);
 
-    // Teljes ének-lánc sztereó blokkon (Gain -> LowCut -> Comp -> Air -> Reverb -> Limiter).
+    // Full vocals chain on a stereo block (Gain -> LowCut -> Comp -> Air -> Reverb -> Limiter).
     juce::dsp::AudioBlock<float> block (buffer);
     vocal.process (block);
 }
@@ -484,19 +484,19 @@ void LiveDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
 //==============================================================================
 int LiveDspProcessor::getEffectiveLatencySamples() const noexcept
 {
-    // Az ének lánc végig nulla-latenciás (IIR/comp/reverb/limiter).
+    // The vocals chain is zero-latency throughout (IIR/comp/reverb/limiter).
     if ((AppMode) appMode.load() != AppMode::guitar)
         return 0;
 
     int s = 0;
 
-    // A pitch shifter csak akkor ad latenciát, ha be van kapcsolva ÉS van eltolás
-    // (semitones != 0) — a process() ilyenkor engedi át nyersen, latencia nélkül.
+    // The pitch shifter only adds latency when it is switched on AND there is a shift
+    // (semitones != 0) — otherwise process() passes the signal through raw, without latency.
     if (pPitchOn != nullptr && pPitchOn->load() > 0.5f
         && pPitchSemis != nullptr && pPitchSemis->load() != 0.0f)
         s += pitchShifter.getLatencySamples();
 
-    // A Cab IR zero-latency módban fut (0), a többi modul szintén 0 latencia.
+    // The Cab IR runs in zero-latency mode (0), and the other modules are also 0 latency.
     return s;
 }
 
@@ -518,7 +518,7 @@ void LiveDspProcessor::copyRecentInput (float* dest, int numToCopy) const noexce
         dest[i] = tunerRing[(size_t) r];
         if (++r >= tunerRingSize) r = 0;
     }
-    // Ha kértek többet, mint amennyi van, a maradékot nullázzuk.
+    // If more was requested than is available, zero out the remainder.
     for (int i = n; i < numToCopy; ++i)
         dest[i] = 0.0f;
 }
@@ -534,7 +534,7 @@ void LiveDspProcessor::getStateInformation (juce::MemoryBlock& destData)
     if (auto state = apvts.copyState(); state.isValid())
     {
         std::unique_ptr<juce::XmlElement> xml (state.createXml());
-        // Bemeneti csatorna-választás módonként (nem APVTS-param, de perzisztens).
+        // Input channel selection per mode (not an APVTS param, but persistent).
         xml->setAttribute ("guitarInputCh", guitarInputCh.load());
         xml->setAttribute ("vocalInputCh",  vocalInputCh.load());
         copyXmlToBinary (*xml, destData);
@@ -553,7 +553,7 @@ void LiveDspProcessor::setStateInformation (const void* data, int sizeInBytes)
 }
 
 //==============================================================================
-// A standalone/plugin belépési pontja.
+// Entry point of the standalone/plugin.
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new LiveDspProcessor();

@@ -71,7 +71,7 @@ GuitarView::~GuitarView()
 
 void GuitarView::buildPanels()
 {
-    // 1. sor — a jelút eleje: bemenet, kapu (LED-del), hangmagasság, drive, amp.
+    // Row 1 — start of the signal chain: input, gate (with LED), pitch, drive, amp.
     row1.add (new InputPanel (processorRef.apvts, "inputGain", "IN",
                               processorRef.getTotalNumInputChannels(),
                               processorRef.getGuitarInputCh(),
@@ -85,10 +85,17 @@ void GuitarView::buildPanels()
     row1.add (new ModulePanel (processorRef.apvts, "DRIVE",  "driveOn",
                                { { "driveAmount", "DRIVE" }, { "driveTone", "TONE" }, { "driveLevel", "LEVEL" } }));
 
-    ampPanel = new ComboPanel (processorRef.apvts, "AMP", "namOn", ComboPanel::Icon::amp);
+    ampPanel = new ComboPanel (processorRef.apvts, "AMP/RIG", "namOn", ComboPanel::Icon::amp);
+    // Browse: import an external .nam rig; it is copied into the writable models
+    // folder and loaded. The download link points to a free rig to try and is
+    // shown only while no model is loaded yet (see updateStatusLabel()).
+    ampPanel->enableBrowse ("*.nam", juce::String::fromUTF8 ("Import .nam…"),
+                            [this] (const juce::File& f) { importAmpModel (f); });
+    ampPanel->setDownloadLink (juce::String::fromUTF8 ("Download a rig to try →"),
+                               juce::URL ("https://www.tone3000.com/tones/mesa-dual-rectifier-mw-red-modern-mesa-4x12-full-rig-69206"));
     row1.add (ampPanel);
 
-    // 2. sor — a jelút vége: hangláda (IR választóval), EQ, idő-FX, kimenet.
+    // Row 2 — end of the signal chain: cabinet (with IR selector), EQ, time-FX, output.
     cabPanel = new ComboPanel (processorRef.apvts, "CAB", "cabOn", ComboPanel::Icon::cab);
     row2.add (cabPanel);
 
@@ -109,6 +116,9 @@ void GuitarView::populateAmpModels()
     if (ampPanel == nullptr) return;
     auto& combo = ampPanel->getCombo();
 
+    // Idempotent: may be called again after importing a model.
+    combo.clear (juce::dontSendNotification);
+    modelFiles.clear();
     if (auto dir = livedsp::getModelsDir(); dir.isDirectory())
         modelFiles = dir.findChildFiles (juce::File::findFiles, true, "*.nam");
 
@@ -126,10 +136,32 @@ void GuitarView::populateAmpModels()
         const int idx = ampPanel->getCombo().getSelectedId() - 1;
         if (idx >= 0 && idx < modelFiles.size())
         {
-            processorRef.loadNamModel (modelFiles[idx]);   // szálbiztos csere
+            processorRef.loadNamModel (modelFiles[idx]);   // thread-safe swap
             updateStatusLabel();
         }
     };
+}
+
+void GuitarView::importAmpModel (const juce::File& source)
+{
+    if (ampPanel == nullptr || ! source.existsAsFile()) return;
+
+    // Copy the chosen .nam into the writable models folder (created on demand).
+    auto dir = livedsp::getModelsDir();
+    dir.createDirectory();
+    auto dest = dir.getChildFile (source.getFileName());
+    if (source != dest)
+        source.copyFileTo (dest);
+
+    // Rescan, then select the imported model — selecting fires the combo's
+    // onChange, which loads it and refreshes the status label.
+    populateAmpModels();
+    for (int i = 0; i < modelFiles.size(); ++i)
+        if (modelFiles[i] == dest)
+        {
+            ampPanel->getCombo().setSelectedId (i + 1);   // notifies -> loadNamModel
+            break;
+        }
 }
 
 void GuitarView::populateCabIrs()
@@ -174,13 +206,17 @@ void GuitarView::updateStatusLabel()
 {
     const auto namName = processorRef.getNam().isLoaded()
                             ? processorRef.getNam().getLoadedName()
-                            : juce::String ("nincs modell [") + processorRef.getNam().getLastStatus() + "]";
+                            : juce::String ("no model [") + processorRef.getNam().getLastStatus() + "]";
     const auto irName  = processorRef.getCab().isLoaded()
                             ? processorRef.getCab().getLoadedName()
-                            : juce::String ("nincs IR");
+                            : juce::String ("no IR");
 
     statusLabel.setText ("Amp: " + namName + "    |    Cab IR: " + irName,
                          juce::dontSendNotification);
+
+    // The "download a rig" hint is only useful before the first model is loaded.
+    if (ampPanel != nullptr)
+        ampPanel->setDownloadLinkVisible (! processorRef.getNam().isLoaded());
 }
 
 void GuitarView::timerCallback()
@@ -188,15 +224,15 @@ void GuitarView::timerCallback()
     const double sr = processorRef.getSampleRate();
     if (sr > 0.0)
     {
-        // Becsült input->output késleltetés: az AKTÍV modulok latenciája
-        // (dinamikus, követi a pitch kapcsolót) + a ki/be pufferelés (~2 blokk).
+        // Estimated input->output latency: the latency of the ACTIVE modules
+        // (dynamic, follows the pitch switch) + the in/out buffering (~2 blocks).
         const double samples = processorRef.getEffectiveLatencySamples()
                                + 2.0 * processorRef.getCurrentBlockSize();
         latencyLabel.setText ("Latency ~ " + juce::String (samples / sr * 1000.0, 1) + " ms",
                               juce::dontSendNotification);
     }
 
-    // Kapu-LED frissítése (kigyullad, amikor a kapu némít).
+    // Update the gate LED (lights up when the gate is ducking).
     if (gatePanel != nullptr)
         gatePanel->setLedLevel (1.0f - processorRef.getGate().getCurrentGain());
 }
@@ -213,7 +249,7 @@ void GuitarView::layoutRow (juce::Rectangle<int> area, juce::OwnedArray<PanelBas
     if (panels.isEmpty())
         return;
 
-    // A panelek arányosan KITÖLTIK a sor teljes szélességét.
+    // The panels proportionally FILL the entire width of the row.
     const int gap = 8;
     int totalPref = 0;
     for (auto* pnl : panels)
@@ -235,8 +271,8 @@ void GuitarView::resized()
 {
     auto area = getLocalBounds().reduced (12);
 
-    // Felső sáv: MENÜ + cím balra; preset + TUNER jobbra (a modellválasztó már
-    // az AMP panelbe került, így a sáv kevésbé zsúfolt).
+    // Top bar: MENU + title on the left; preset + TUNER on the right (the model
+    // selector has moved into the AMP panel, so the bar is less crowded).
     auto top = area.removeFromTop (32);
     menuButton.setBounds (top.removeFromLeft (72).reduced (0, 2));
     top.removeFromLeft (10);

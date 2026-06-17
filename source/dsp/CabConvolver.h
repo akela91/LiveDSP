@@ -3,15 +3,15 @@
 #include <JuceHeader.h>
 
 /**
-    IR (impulzusválasz) cab-szimulátor a juce::dsp::Convolution köré,
-    ZERO-LATENCY módban (Latency{0}) — élő játékhoz.
+    IR (impulse response) cabinet simulator built around juce::dsp::Convolution,
+    in ZERO-LATENCY mode (Latency{0}) — for live playing.
 
-    FONTOS: a "Full Rig" NAM modellek MÁR tartalmazzák a hangládát, ezért
-    ilyenkor ezt a modult bypassolni kell (lásd setEnabled). Külön IR-t csak
-    "amp-only" (preamp/DI) NAM modellhez érdemes betölteni.
+    IMPORTANT: "Full Rig" NAM models ALREADY include the cabinet, so in that case
+    this module must be bypassed (see setEnabled). A separate IR is only worth
+    loading for an "amp-only" (preamp/DI) NAM model.
 
-    Sztereó jelen dolgozik (a NAM utáni mono jelet a processzor szélesíti
-    sztereóvá ez előtt a modul előtt).
+    Operates on a stereo signal (the processor widens the mono post-NAM signal
+    to stereo before this module).
 */
 class CabConvolver
 {
@@ -35,9 +35,9 @@ public:
     bool isLoaded() const noexcept { return loaded; }
     juce::String getLoadedName() const { return loadedName; }
 
-    /** .wav IR betöltése. Hívd üzenetszálról (fájl-IO!).
-        A Convolution belsőleg háttérszálon dolgozza fel, és szálbiztosan
-        cseréli az aktív IR-t. */
+    /** Load a .wav IR. Call from the message thread (file I/O!).
+        The Convolution processes it internally on a background thread and
+        swaps the active IR in a thread-safe manner. */
     bool loadIR (const juce::File& irFile)
     {
         if (! irFile.existsAsFile())
@@ -45,17 +45,17 @@ public:
 
         convolution.loadImpulseResponse (
             irFile,
-            juce::dsp::Convolution::Stereo::yes,      // sztereóvá terjeszti, ha mono az IR
-            juce::dsp::Convolution::Trim::yes,        // csendes farok levágása
-            0,                                        // 0 = teljes IR hossz
-            juce::dsp::Convolution::Normalise::yes);  // szintnormalizálás
+            juce::dsp::Convolution::Stereo::yes,      // spreads to stereo if the IR is mono
+            juce::dsp::Convolution::Trim::yes,        // trims the silent tail
+            0,                                        // 0 = full IR length
+            juce::dsp::Convolution::Normalise::yes);  // level normalization
 
         loadedName = irFile.getFileNameWithoutExtension();
         loaded = true;
         return true;
     }
 
-    // Sztereó, in-place feldolgozás egy AudioBlock-on.
+    // Stereo, in-place processing on an AudioBlock.
     void process (juce::dsp::AudioBlock<float>& block) noexcept
     {
         if (! enabled || ! loaded)
@@ -67,7 +67,7 @@ public:
 
 private:
     juce::dsp::Convolution convolution;
-    bool enabled { false };          // alapból OFF (Full Rig NAM miatt)
+    bool enabled { false };          // OFF by default (because of Full Rig NAM)
     bool loaded  { false };
     juce::String loadedName;
 };

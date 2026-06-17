@@ -4,14 +4,15 @@
 #include <array>
 
 /**
-    9-sávos grafikus EQ oktáv-frekvenciákon:
+    9-band graphic EQ at octave frequencies:
         65, 125, 250, 500, 1000, 2000, 4000, 8000, 16000 Hz
 
-    Alacsony latenciás: IIR biquad peak-szűrők (ZERO extra latencia, ellentétben
-    a lineáris fázisú FFT-EQ-val). Sztereó (ProcessorDuplicator sávonként).
-    A NAM/Cab után, a Delay előtt fut.
+    Low latency: IIR biquad peak filters (ZERO extra latency, unlike a
+    linear-phase FFT EQ). Stereo (ProcessorDuplicator per band).
+    Runs after NAM/Cab, before the Delay.
 
-    A coefficiens-frissítés csak változott sávra történik (nem blokkonként mindre).
+    Coefficients are updated only for bands that changed (not all of them
+    every block).
 */
 class Equalizer
 {
@@ -27,7 +28,7 @@ public:
             b.prepare (spec);
 
         for (auto& g : lastGains)
-            g = 1.0e9f;     // kényszerített frissítés
+            g = 1.0e9f;     // forced update
         updateCoefficients();
     }
 
@@ -39,7 +40,7 @@ public:
 
     void setEnabled (bool shouldBeEnabled) noexcept { enabled = shouldBeEnabled; }
 
-    // numBands gain érték dB-ben (-15..+15).
+    // numBands gain values in dB (-15..+15).
     void setGains (const float* gainsDb) noexcept
     {
         for (int i = 0; i < numBands; ++i)
@@ -63,7 +64,7 @@ private:
         if (sampleRate <= 0.0)
             return;
 
-        // Oktáv-sávhoz Q ~ 1.41 (kb. 1 oktáv sávszélesség).
+        // For an octave band Q ~ 1.41 (about 1 octave bandwidth).
         constexpr float Q = 1.41f;
 
         for (int i = 0; i < numBands; ++i)

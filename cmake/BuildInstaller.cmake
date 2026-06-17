@@ -1,32 +1,32 @@
 # ===========================================================================
-# BuildInstaller.cmake — a LiveDSP standalone POST_BUILD lépése hívja meg.
+# BuildInstaller.cmake — invoked by the LiveDSP standalone POST_BUILD step.
 #
-# Lefordítja az Inno Setup telepítőt a Release build után. NE add hozzá
-# közvetlenül a buildhez; a CMakeLists.txt POST_BUILD custom command-ja adja
-# át a paramétereket:
+# Builds the Inno Setup installer after a Release build. Do NOT add it directly
+# to the build; the POST_BUILD custom command in CMakeLists.txt passes the
+# parameters:
 #
 #   cmake -DISCC=<ISCC.exe> -DISS=<LiveDSP.iss> -DCFG=$<CONFIG>
-#         -DVER=<projekt verzió> -P cmake/BuildInstaller.cmake
+#         -DVER=<project version> -P cmake/BuildInstaller.cmake
 #
-# Csak Release konfigurációban fut (a statikus runtime + terjesztés ott
-# releváns), és csak akkor, ha az ISCC megtalálható — különben csendben
-# kihagyja, hogy a Debug/inkrementális buildek gyorsak maradjanak.
+# Runs only in the Release configuration (where the static runtime +
+# distribution matter), and only when ISCC is found — otherwise it silently
+# skips, so Debug/incremental builds stay fast.
 # ===========================================================================
 
-# Csak Release-ben építünk telepítőt.
+# Only build the installer in Release.
 if(NOT CFG STREQUAL "Release")
     return()
 endif()
 
 if(NOT ISCC OR NOT EXISTS "${ISCC}")
     message(STATUS
-        "LiveDSP: Inno Setup (ISCC) nem található — a telepítő-build kihagyva.\n"
-        "  Telepítsd: winget install JRSoftware.InnoSetup\n"
-        "  Majd konfiguráld újra a CMake-et (a find_program újra megtalálja).")
+        "LiveDSP: Inno Setup (ISCC) not found — installer build skipped.\n"
+        "  Install with: winget install JRSoftware.InnoSetup\n"
+        "  Then re-run CMake configure (find_program will pick it up).")
     return()
 endif()
 
-message(STATUS "LiveDSP: telepítő fordítása Inno Setup-pal (${ISS}) ...")
+message(STATUS "LiveDSP: building the installer with Inno Setup (${ISS}) ...")
 
 execute_process(
     COMMAND "${ISCC}" "/DAppVersion=${VER}" "${ISS}"
@@ -36,8 +36,8 @@ execute_process(
 
 if(NOT iscc_result EQUAL 0)
     message(WARNING
-        "LiveDSP: az Inno Setup fordítás HIBÁVAL tért vissza (${iscc_result}).\n"
+        "LiveDSP: the Inno Setup build returned an ERROR (${iscc_result}).\n"
         "${iscc_out}\n${iscc_err}")
 else()
-    message(STATUS "LiveDSP: telepítő kész → installer/Output/LiveDSP-Setup-${VER}.exe")
+    message(STATUS "LiveDSP: installer ready -> installer/Output/LiveDSP-Setup-${VER}.exe")
 endif()

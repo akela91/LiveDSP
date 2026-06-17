@@ -6,12 +6,12 @@
 #include "dsp/PitchDetector.h"
 
 /**
-    Vizuális gitárhangoló. A processzor nyers bemenetét pollozza (Timer), és
-    autokorrelációval detektálja a hangmagasságot. Kijelzi a legközelebbi hangot
-    és a cent-eltérést egy mutatóval (zöld = hangban).
+    Visual guitar tuner. Polls the processor's raw input (Timer) and detects the
+    pitch using autocorrelation. Displays the nearest note and the cent deviation
+    with a needle (green = in tune).
 
-    A detektálás az üzenetszálon fut (a Timer callbackben), így nem terheli a
-    hangszálat.
+    Detection runs on the message thread (in the Timer callback), so it does not
+    load the audio thread.
 */
 class TunerComponent : public juce::Component,
                        private juce::Timer
@@ -35,7 +35,7 @@ public:
 
         const bool inTune = hasPitch && std::abs (cents) < 5.0f;
 
-        // Hang neve
+        // Note name
         auto top = area.removeFromTop (area.getHeight() / 2);
         g.setColour (hasPitch ? (inTune ? juce::Colours::limegreen : juce::Colours::white)
                               : juce::Colours::grey);
@@ -43,7 +43,7 @@ public:
         g.drawText (hasPitch ? noteName : juce::String ("--"),
                     top, juce::Justification::centred);
 
-        // Frekvencia + cent szöveg
+        // Frequency + cent text
         g.setColour (juce::Colours::lightgrey);
         g.setFont (juce::Font (juce::FontOptions (12.0f)));
         if (hasPitch)
@@ -51,18 +51,18 @@ public:
                           + (cents >= 0 ? "+" : "") + juce::String (cents, 0) + " cent",
                         top.removeFromBottom (16), juce::Justification::centred);
 
-        // Cent-mutató sáv
+        // Cent needle bar
         auto bar = area.reduced (4);
         const float midX = bar.getCentreX();
 
         g.setColour (juce::Colour (0xff333333));
         g.fillRect (bar.withSizeKeepingCentre (bar.getWidth(), 6));
 
-        // Középvonal (hangban)
+        // Centre line (in tune)
         g.setColour (juce::Colours::limegreen.withAlpha (0.6f));
         g.fillRect ((int) midX - 1, bar.getY(), 2, bar.getHeight());
 
-        // Skála ±50 cent
+        // Scale ±50 cent
         if (hasPitch)
         {
             const float norm = juce::jlimit (-1.0f, 1.0f, cents / 50.0f);
@@ -85,7 +85,7 @@ private:
         {
             silenceCount = 0;
 
-            // Sima frekvencia-követés (octave-ugrás után gyorsabb újrakövetés).
+            // Smooth frequency tracking (faster re-tracking after an octave jump).
             const bool jumped = smoothedFreq > 0.0f
                 && (r.frequency > 1.6f * smoothedFreq || r.frequency < 0.6f * smoothedFreq);
             if (smoothedFreq <= 0.0f || jumped)
@@ -97,8 +97,8 @@ private:
             const float midiF   = 69.0f + 12.0f * std::log2 (frequency / 440.0f);
             const int   nearest = (int) std::lround (midiF);
 
-            // HANG-STABILIZÁLÁS: csak több egymást követő stabil keret után váltunk
-            // hangot (megszünteti a magas hangok ugrálását).
+            // NOTE STABILIZATION: only switch notes after several consecutive stable
+            // frames (eliminates the jitter of high notes).
             if (nearest == pendingNote)
             {
                 if (++pendingCount >= stableFramesNeeded || displayedNote == INT_MIN)
@@ -112,12 +112,12 @@ private:
                     displayedNote = nearest;
             }
 
-            // A cent-eltérés a STABIL hanghoz képest.
+            // The cent deviation relative to the STABLE note.
             cents    = (midiF - (float) displayedNote) * 100.0f;
             noteName = midiNoteName (displayedNote);
             hasPitch = true;
         }
-        else if (++silenceCount > 10)   // pár keret tartás, majd törlés
+        else if (++silenceCount > 10)   // hold for a few frames, then clear
         {
             hasPitch     = false;
             smoothedFreq = 0.0f;
@@ -151,7 +151,7 @@ private:
     float  cents        { 0.0f };
     juce::String noteName { "--" };
 
-    // Hang-stabilizálás
+    // Note stabilization
     static constexpr int stableFramesNeeded = 2;
     static constexpr float minClarity = 0.8f;
     int displayedNote { INT_MIN };

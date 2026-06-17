@@ -7,12 +7,12 @@
 #include "AppView.h"
 
 /**
-    Ének (Vocal) nézet: a GuitarDSP stílusú moduláris panelsor az ének jelúthoz.
-    Felső sáv: cím + "menü" gomb (vissza a Landing képernyőre) + latencia-kijelző.
+    Vocal view: the GuitarDSP-style modular panel row for the vocal signal chain.
+    Top bar: title + "menu" button (back to the Landing screen) + latency display.
 
-    Panelek (a jelút sorrendjében):
-      INPUT (Gain) · LOW CUT (90 Hz, fix) · COMP (thresh/ratio) ·
-      AIR (6 kHz shelf) · REVERB (mix) · LIMITER (-0.1 dB, fix)
+    Panels (in signal chain order):
+      INPUT (Gain) · LOW CUT (90 Hz, fixed) · COMP (thresh/ratio) ·
+      AIR (6 kHz shelf) · REVERB (mix) · LIMITER (-0.1 dB, fixed)
 */
 class VoiceView : public AppView,
                   private juce::Timer
@@ -38,13 +38,13 @@ public:
         infoLabel.setJustificationType (juce::Justification::centredLeft);
         infoLabel.setColour (juce::Label::textColourId, juce::Colour (LiveLookAndFeel::cTextDim));
         infoLabel.setFont (juce::Font (juce::FontOptions (11.0f)));
-        infoLabel.setText (juce::String::fromUTF8 ("Élő ének — SM58 / Scarlett · brickwall limiter a clip ellen"),
+        infoLabel.setText (juce::String::fromUTF8 ("Live vocals — SM58 / Scarlett · brickwall limiter against clipping"),
                            juce::dontSendNotification);
         addAndMakeVisible (infoLabel);
 
         auto& s = processorRef.apvts;
 
-        // 1. sor — bemenet, szűrő, kapu, melegítés, kompresszor.
+        // Row 1 — input, filter, gate, warmth, compressor.
         row1.add (new InputPanel (s, "vocGain", "GAIN",
                                   processorRef.getTotalNumInputChannels(),
                                   processorRef.getVocalInputCh(),
@@ -61,7 +61,7 @@ public:
         compPanel->enableLed (true);
         row1.add (compPanel);
 
-        // 2. sor — air, delay, reverb, limiter.
+        // Row 2 — air, delay, reverb, limiter.
         row2.add (new ModulePanel (s, "AIR", "vocAirOn", { { "vocAir", "AIR" } }));
         row2.add (new ModulePanel (s, "DELAY", "vocDelayOn",
                                    { { "vocDelayTime", "TIME" }, { "vocDelayMix", "MIX" } }));
@@ -102,7 +102,7 @@ public:
         infoLabel.setBounds (bottom);
         area.removeFromBottom (6);
 
-        // Két panelsor, mindkettő arányosan kitölti a szélességet.
+        // Two panel rows, each filling the width proportionally.
         auto r1 = area.removeFromTop (juce::jmin (area.getHeight() / 2, 150));
         area.removeFromTop (10);
         layoutRow (r1, row1);
@@ -110,7 +110,7 @@ public:
     }
 
 private:
-    // Arányos szélesség-kitöltés (mint a gitár nézet sorai).
+    // Proportional width fill (like the rows in the guitar view).
     static void layoutRow (juce::Rectangle<int> area, juce::OwnedArray<PanelBase>& panels)
     {
         if (panels.isEmpty())
@@ -137,13 +137,13 @@ private:
         const double sr = processorRef.getSampleRate();
         if (sr > 0.0)
         {
-            // Az ének lánc nulla-latenciás; csak a ki/be pufferelés (~2 blokk) számít.
+            // The vocal chain is zero-latency; only the in/out buffering (~2 blocks) matters.
             const double samples = 2.0 * processorRef.getCurrentBlockSize();
             latencyLabel.setText ("Latency ~ " + juce::String (samples / sr * 1000.0, 1) + " ms",
                                   juce::dontSendNotification);
         }
 
-        // LED-ek: a kapu kigyullad némításkor, a kompresszor vágáskor.
+        // LEDs: the gate lights up when muting, the compressor when reducing gain.
         if (gatePanel != nullptr)
             gatePanel->setLedLevel (1.0f - processorRef.getVocalGateGain());
         if (compPanel != nullptr)
@@ -153,7 +153,7 @@ private:
     LiveDspProcessor& processorRef;
 
     juce::Label      titleLabel;
-    juce::TextButton menuButton { juce::String::fromUTF8 ("‹ MENÜ") };
+    juce::TextButton menuButton { juce::String::fromUTF8 ("‹ MENU") };
     juce::Label      latencyLabel;
     juce::Label      infoLabel;
 

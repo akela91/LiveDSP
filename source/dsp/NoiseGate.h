@@ -4,12 +4,12 @@
 #include <cmath>
 
 /**
-    Gyors, válaszkész zajkapu (envelope follower + küszöb).
+    Fast, responsive noise gate (envelope follower + threshold).
 
-    Mono jelre dolgozik. Az attack/release ms-ben állítható, a küszöb dB-ben.
-    A hysteresis (open/close küszöb különbség) megakadályozza a "chattering"-et.
+    Operates on a mono signal. The attack/release are set in ms, the threshold in dB.
+    The hysteresis (open/close threshold difference) prevents "chattering".
 
-    RT-safe: nincs allokáció a process()-ben.
+    RT-safe: no allocation in process().
 */
 class NoiseGate
 {
@@ -28,7 +28,7 @@ public:
         gain = 0.0f;
     }
 
-    // dB-ben adott küszöb (pl. -60 .. -20)
+    // Threshold given in dB (e.g. -60 .. -20)
     void setThreshold (float thresholdDb) noexcept
     {
         openThreshold  = juce::Decibels::decibelsToGain (thresholdDb);
@@ -39,12 +39,12 @@ public:
     void setRelease (float releaseMs) noexcept { releaseTimeMs = releaseMs; updateCoefficients(); }
     void setEnabled (bool shouldBeEnabled) noexcept { enabled = shouldBeEnabled; }
 
-    // A kapu aktuális gain-je (0 = teljesen zárva/némít, 1 = nyitva) — a UI
-    // LED-jelzéshez (üzenetszálról olvasandó, atomikusan). Ha a kapu ki van
-    // kapcsolva, 1.0-t ad (nincs némítás).
+    // The gate's current gain (0 = fully closed/muting, 1 = open) — for the UI
+    // LED indicator (to be read from the message thread, atomically). If the gate
+    // is disabled, returns 1.0 (no muting).
     float getCurrentGain() const noexcept { return enabled ? currentGain.load() : 1.0f; }
 
-    // Mono, in-place feldolgozás.
+    // Mono, in-place processing.
     void process (float* samples, int numSamples) noexcept
     {
         if (! enabled)
@@ -54,27 +54,27 @@ public:
         {
             const float in = samples[i];
 
-            // Egyszerű envelope follower (peak detektor, gyors fel / lassú le).
+            // Simple envelope follower (peak detector, fast attack / slow release).
             const float rectified = std::abs (in);
             if (rectified > envelope)
-                envelope = rectified;                              // azonnal követi a csúcsot
+                envelope = rectified;                              // follows the peak instantly
             else
-                envelope = envelope * envelopeDecay;               // lassú lecsengés
+                envelope = envelope * envelopeDecay;               // slow decay
 
-            // Cél-gain meghatározása hysteresissel.
+            // Determine the target gain with hysteresis.
             float targetGain;
             if (envelope > openThreshold)        targetGain = 1.0f;
             else if (envelope < closeThreshold)  targetGain = 0.0f;
-            else                                 targetGain = gain; // tartás a sávban
+            else                                 targetGain = gain; // hold within the band
 
-            // Sima átmenet (attack a nyitásnál, release a zárásnál).
+            // Smooth transition (attack when opening, release when closing).
             const float coeff = (targetGain > gain) ? attackCoeff : releaseCoeff;
             gain = targetGain + (gain - targetGain) * coeff;
 
             samples[i] = in * gain;
         }
 
-        currentGain.store (gain);   // blokk végi állapot a UI LED-hez
+        currentGain.store (gain);   // end-of-block state for the UI LED
     }
 
 private:
@@ -82,7 +82,7 @@ private:
     {
         attackCoeff   = std::exp (-1.0f / (0.001f * attackTimeMs  * (float) sampleRate));
         releaseCoeff  = std::exp (-1.0f / (0.001f * releaseTimeMs * (float) sampleRate));
-        // Envelope lecsengés ~ 50 ms ablak
+        // Envelope decay ~ 50 ms window
         envelopeDecay = std::exp (-1.0f / (0.050f * (float) sampleRate));
     }
 
@@ -103,5 +103,5 @@ private:
     float envelope { 0.0f };
     float gain     { 0.0f };
 
-    std::atomic<float> currentGain { 1.0f };   // UI LED-hez (blokk végi gain)
+    std::atomic<float> currentGain { 1.0f };   // for the UI LED (end-of-block gain)
 };

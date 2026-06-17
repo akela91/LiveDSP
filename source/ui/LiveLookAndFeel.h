@@ -3,17 +3,17 @@
 #include <JuceHeader.h>
 
 /**
-    Modern, sötét LookAndFeel a GuitarDSP-hez (Neural DSP-stílus inspiráció).
-    Meleg borostyán akcentus, sötét panelek, ívelt értékjelzős rotary knob-ok.
+    Modern, dark LookAndFeel for GuitarDSP (Neural DSP-style inspiration).
+    Warm amber accent, dark panels, rotary knobs with curved value indicators.
 */
 class LiveLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    // Színpaletta
+    // Colour palette
     static constexpr juce::uint32 cBackground = 0xff0d0d10;
     static constexpr juce::uint32 cPanel      = 0xff17171c;
     static constexpr juce::uint32 cPanelHead  = 0xff20202a;
-    static constexpr juce::uint32 cAccent     = 0xff4aa8e0;  // jégkék acél
+    static constexpr juce::uint32 cAccent     = 0xff4aa8e0;  // icy steel blue
     static constexpr juce::uint32 cAccentDim  = 0xff2c4a5e;
     static constexpr juce::uint32 cText        = 0xffe9e9ec;
     static constexpr juce::uint32 cTextDim     = 0xff8a8a93;
@@ -46,26 +46,26 @@ public:
         const float arcR   = radius - lineW;
         const float angle  = startAngle + sliderPos * (endAngle - startAngle);
 
-        // háttér ív
+        // background arc
         juce::Path bg;
         bg.addCentredArc (centre.x, centre.y, arcR, arcR, 0.0f, startAngle, endAngle, true);
         g.setColour (juce::Colour (cTrack));
         g.strokePath (bg, juce::PathStrokeType (lineW, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-        // érték ív
+        // value arc
         juce::Path val;
         val.addCentredArc (centre.x, centre.y, arcR, arcR, 0.0f, startAngle, angle, true);
         g.setColour (juce::Colour (cAccent));
         g.strokePath (val, juce::PathStrokeType (lineW, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-        // knob test
+        // knob body
         const float knobR = radius - lineW * 1.8f;
         g.setColour (juce::Colour (cPanelHead).brighter (0.15f));
         g.fillEllipse (centre.x - knobR, centre.y - knobR, knobR * 2.0f, knobR * 2.0f);
         g.setColour (juce::Colour (cTrack));
         g.drawEllipse (centre.x - knobR, centre.y - knobR, knobR * 2.0f, knobR * 2.0f, 1.0f);
 
-        // mutató
+        // pointer
         juce::Point<float> tip (centre.x + (knobR - 3.0f) * std::cos (angle - juce::MathConstants<float>::halfPi),
                                 centre.y + (knobR - 3.0f) * std::sin (angle - juce::MathConstants<float>::halfPi));
         g.setColour (juce::Colour (cAccent));
@@ -85,12 +85,12 @@ public:
             g.setColour (juce::Colour (cTrack));
             g.fillRoundedRectangle (cx - trackW * 0.5f, (float) y, trackW, (float) height, 2.0f);
 
-            // középvonal (0 dB)
+            // centre line (0 dB)
             const float midY = (float) y + height * 0.5f;
             g.setColour (juce::Colour (cTextDim).withAlpha (0.4f));
             g.fillRect ((float) x + 2.0f, midY - 0.5f, (float) width - 4.0f, 1.0f);
 
-            // kitöltés a középponttól a thumb-ig
+            // fill from the centre point to the thumb
             g.setColour (juce::Colour (cAccent));
             const float top = juce::jmin (sliderPos, midY);
             const float bot = juce::jmax (sliderPos, midY);

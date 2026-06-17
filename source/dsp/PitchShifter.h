@@ -6,34 +6,34 @@
 #include <cmath>
 #include <memory>
 
-// Signalsmith Stretch (header-only, MIT). Az include útvonalat a
-// 'signalsmith-stretch' CMake cél adja (include/ mappa), ami transzitívan
-// behúzza a signalsmith-linear függőséget is.
+// Signalsmith Stretch (header-only, MIT). The include path is provided by the
+// 'signalsmith-stretch' CMake target (include/ folder), which transitively
+// pulls in the signalsmith-linear dependency as well.
 #include "signalsmith-stretch/signalsmith-stretch.h"
 
-// Rubber Band Library (GPL/commercial). Az egyfájlos build statikus libje
-// (single/RubberBandSingle.cpp) MINDKÉT osztályt lefordítja:
-//  - RubberBandStretcher: valós idejű (OptionProcessRealTime) idő/hangmagasság.
-//  - RubberBandLiveShifter (v4): kifejezetten a legkisebb latenciás élő pitch.
+// Rubber Band Library (GPL/commercial). The single-file build's static lib
+// (single/RubberBandSingle.cpp) compiles BOTH classes:
+//  - RubberBandStretcher: real-time (OptionProcessRealTime) time/pitch.
+//  - RubberBandLiveShifter (v4): specifically the lowest-latency live pitch.
 #include <rubberband/RubberBandStretcher.h>
 #include <rubberband/RubberBandLiveShifter.h>
 
 /**
-    Valós idejű, polifonikus pitch shifter HÁROM választható motorral.
+    Real-time, polyphonic pitch shifter with THREE selectable engines.
 
-    - Signalsmith Stretch: élőben állítható blokkmérettel (a 'Pitch Latency'
-      knob), 1:1 blokk-feldolgozás belső fix késleltetéssel.
-    - Rubber Band Stretcher (R3 'Finer', OptionProcessRealTime): jó polifonikus
-      minőség (power chordok), magasabb fix motor-késleltetés.
-    - Rubber Band LiveShifter (v4): fix blokkméretű (getBlockSize) shift(),
-      a legkisebb latenciára tervezve — élő monitorozáshoz.
+    - Signalsmith Stretch: live-adjustable block size (the 'Pitch Latency'
+      knob), 1:1 block processing with internal fixed latency.
+    - Rubber Band Stretcher (R3 'Finer', OptionProcessRealTime): good polyphonic
+      quality (power chords), higher fixed engine latency.
+    - Rubber Band LiveShifter (v4): fixed block size (getBlockSize) shift(),
+      designed for the lowest latency — for live monitoring.
 
-    Drop-hangoláshoz: -12 .. +12 félhang (időnyújtás nélkül, 1:1 arányban).
-    Mono jelre dolgozik (a gitár jelút mono a NAM-ig).
+    For drop tuning: -12 .. +12 semitones (without time stretching, at a 1:1 ratio).
+    Operates on a mono signal (the guitar signal chain is mono up to the NAM).
 
-    A reconfigure/reset/prepare az ÜZENETSZÁLRÓL hívandó (allokálhat); a process()
-    a hangszálon tryLock-ot használ (a csere pillanatában 1 blokkot kihagy).
-    A getLatencySamples() az AKTÍV motor atomikusan cache-elt latenciáját adja.
+    reconfigure/reset/prepare must be called from the MESSAGE THREAD (may allocate); process()
+    uses a tryLock on the audio thread (skips 1 block at the moment of the swap).
+    getLatencySamples() returns the ACTIVE engine's atomically cached latency.
 */
 class PitchShifter
 {
@@ -55,10 +55,10 @@ public:
         configureLiveShifter();
     }
 
-    // STFT-blokk hossza ms-ben a Signalsmith motorhoz (kisebb = kisebb latencia).
+    // STFT block length in ms for the Signalsmith engine (smaller = lower latency).
     void setBlockMs (double ms) noexcept { blockMs = juce::jlimit (8.0, 120.0, ms); }
 
-    // Élő újrakonfigurálás az új blockMs-szel (Signalsmith) — ÜZENETSZÁLRÓL hívd.
+    // Live reconfiguration with the new blockMs (Signalsmith) — call from the MESSAGE THREAD.
     void reconfigure()
     {
         const juce::SpinLock::ScopedLockType sl (lock);
@@ -86,18 +86,18 @@ public:
 
     void setEngine (int e) noexcept { engine.store (e); }
 
-    // RB Live minőség/latencia profil: 0 = Fast (rövid ablak, legkisebb latencia),
-    // 1 = Fine (közepes ablak + formant-megőrzés, jobb timbre, kicsit több latencia).
+    // RB Live quality/latency profile: 0 = Fast (short window, lowest latency),
+    // 1 = Fine (medium window + formant preservation, better timbre, slightly more latency).
     void setLiveQuality (int q) noexcept { liveQuality.store (q); }
 
-    // RB Live profilváltás — ÜZENETSZÁLRÓL hívd (újraépíti a shiftert + FIFO-t).
+    // RB Live profile switch — call from the MESSAGE THREAD (rebuilds the shifter + FIFO).
     void reconfigureLive()
     {
         const juce::SpinLock::ScopedLockType sl (lock);
         configureLiveShifter();
     }
 
-    // Csak tárol; a transpose-t a process() alkalmazza a zár alatt (szálbiztos).
+    // Only stores; the transpose is applied by process() under the lock (thread-safe).
     void setSemitones (float semitones) noexcept
     {
         currentSemitones.store (juce::jlimit (-12.0f, 12.0f, semitones));
@@ -114,13 +114,13 @@ public:
         }
     }
 
-    // Mono, in-place feldolgozás (numSamples <= maxBlockSize).
+    // Mono, in-place processing (numSamples <= maxBlockSize).
     void process (float* samples, int numSamples) noexcept
     {
         if (! enabled || currentSemitones.load() == 0.0f)
             return;
 
-        // tryLock: ha épp reconfigure/reset zajlik (üzenetszál), kihagyjuk a blokkot.
+        // tryLock: if a reconfigure/reset is in progress (message thread), skip the block.
         const juce::SpinLock::ScopedTryLockType sl (lock);
         if (! sl.isLocked())
             return;
@@ -143,7 +143,7 @@ public:
 
 private:
     //==========================================================================
-    // Mono kör-FIFO (kettő-hatvány kapacitás), allokáció nélküli push/pop.
+    // Mono ring FIFO (power-of-two capacity), allocation-free push/pop.
     //==========================================================================
     struct MonoRing
     {
@@ -172,11 +172,11 @@ private:
                 buf[(size_t) write] = s[i];
                 write = (write + 1) & mask;
                 if (count < cap) ++count;
-                else read = (read + 1) & mask;   // túlcsordulás: legrégebbit eldobjuk
+                else read = (read + 1) & mask;   // overflow: drop the oldest
             }
         }
 
-        // n mintát ad; ha kevesebb van, a maradékot nullázza.
+        // Returns n samples; if fewer are available, zeroes the remainder.
         void popOrZero (float* d, int n) noexcept
         {
             const int have = juce::jmin (count, n);
@@ -190,7 +190,7 @@ private:
                 d[i] = 0.0f;
         }
 
-        // Pontosan n mintát ad (a hívó garantálja, hogy count >= n).
+        // Returns exactly n samples (the caller guarantees that count >= n).
         void pop (float* d, int n) noexcept
         {
             for (int i = 0; i < n; ++i)
@@ -203,7 +203,7 @@ private:
     };
 
     //==========================================================================
-    // Signalsmith motor
+    // Signalsmith engine
     //==========================================================================
     void processSignalsmith (float* samples, int numSamples) noexcept
     {
@@ -227,7 +227,7 @@ private:
     }
 
     //==========================================================================
-    // Rubber Band Stretcher (valós idejű, R3 'Finer')
+    // Rubber Band Stretcher (real-time, R3 'Finer')
     //==========================================================================
     void processRubberBand (float* samples, int numSamples) noexcept
     {
@@ -274,7 +274,7 @@ private:
     }
 
     //==========================================================================
-    // Rubber Band LiveShifter (v4) — fix blokkméret, legkisebb latencia
+    // Rubber Band LiveShifter (v4) — fixed block size, lowest latency
     //==========================================================================
     void processLiveShifter (float* samples, int numSamples) noexcept
     {
@@ -285,7 +285,7 @@ private:
             lsPitchScale = scale;
         }
 
-        // Bemenet akkumulálása; teljes blokkonként shift().
+        // Accumulate the input; shift() per full block.
         lsIn.push (samples, numSamples);
         while (lsIn.count >= lsBlock)
         {
@@ -303,8 +303,8 @@ private:
     {
         using LS = RubberBand::RubberBandLiveShifter;
 
-        // Fast: OptionWindowShort (= DefaultOptions) a legkisebb latenciához.
-        // Fine: közepes ablak + formant-megőrzés (jobb lehangolt timbre).
+        // Fast: OptionWindowShort (= DefaultOptions) for the lowest latency.
+        // Fine: medium window + formant preservation (better detuned timbre).
         const int opts = liveQuality.load() == 1
                            ? (LS::OptionWindowMedium | LS::OptionFormantPreserved)
                            : (int) LS::DefaultOptions;
@@ -322,7 +322,7 @@ private:
         lsIn.setCapacityAtLeast  (lsBlock + 4 * maxBlockSize + 16);
         lsOut.setCapacityAtLeast (delay + lsBlock + 4 * maxBlockSize + 16);
 
-        // Perceptuális latencia ~= belső startDelay + a blokk-akkumuláció (lsBlock).
+        // Perceptual latency ~= internal startDelay + the block accumulation (lsBlock).
         lsLatency.store (delay + lsBlock);
     }
 
@@ -348,11 +348,11 @@ private:
     std::vector<float> scratchOut;
     std::vector<float> rbScratch;
 
-    // Rubber Band Stretcher kimeneti FIFO.
+    // Rubber Band Stretcher output FIFO.
     MonoRing rbOut;
     double   rbPitchScale { 1.0 };
 
-    // LiveShifter be-/kimeneti FIFO + fix blokk-scratch.
+    // LiveShifter input/output FIFO + fixed block scratch.
     MonoRing lsIn, lsOut;
     std::vector<float> lsBlockIn, lsBlockOut;
     int      lsBlock      { 0 };

@@ -11,15 +11,15 @@
 #include "dsp/VoiceChain.h"
 
 /**
-    GuitarDSP — kétmódú standalone audio app: GITÁR amp-szimulátor + ÉNEK
-    csatorna. A futás közben váltható 'appMode' dönti el, melyik jelút fut.
-    Az induló képernyő (Landing) választatja ki a módot (0 = nincs választva).
+    GuitarDSP — dual-mode standalone audio app: GUITAR amp simulator + VOCALS
+    channel. The runtime-switchable 'appMode' decides which signal chain runs.
+    The startup screen (Landing) lets the user pick the mode (0 = none selected).
 
-    Gitár jelút:
+    Guitar signal chain:
       In -> [InputGain] -> [Gate] -> [Pitch] -> [Overdrive] -> [NAM]
          -> (mono->stereo) -> [Cab IR] -> [EQ] -> [Delay] -> [Reverb] -> [OutputGain] -> Out
 
-    Ének jelút (mono mikrofon -> sztereó, VoiceChain ProcessorChain):
+    Vocals signal chain (mono microphone -> stereo, VoiceChain ProcessorChain):
       In -> [Gain] -> [LowCut 90Hz] -> [Comp] -> [Air 6kHz] -> [Reverb] -> [Limiter] -> Out
 */
 class LiveDspProcessor  : public juce::AudioProcessor,
@@ -43,7 +43,7 @@ public:
     bool acceptsMidi() const override  { return false; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 3.0; } // reverb/delay farok
+    double getTailLengthSeconds() const override { return 3.0; } // reverb/delay tail
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -55,44 +55,44 @@ public:
     void setStateInformation (const void*, int sizeInBytes) override;
 
     //==============================================================================
-    // Modell-/IR-betöltés (üzenetszálról hívandó).
+    // Model/IR loading (call from the message thread).
     bool loadNamModel (const juce::File& namFile) { return nam.loadModel (namFile); }
     bool loadCabIr    (const juce::File& irFile)  { return cab.loadIR (irFile); }
     NamProcessor& getNam()       { return nam; }
     CabConvolver& getCab()       { return cab; }
     NoiseGate&    getGate()      { return gate; }
 
-    // Vokál kijelző-mérők a UI LED-ekhez (0..1).
+    // Vocals display meters for the UI LEDs (0..1).
     float getVocalGateGain()      const noexcept { return vocal.getGateGain(); }
     float getVocalCompReduction() const noexcept { return vocal.getCompReduction(); }
 
     int getCurrentBlockSize() const noexcept { return currentBlockSize; }
 
     //==============================================================================
-    // App-mód: 0 = nincs választva (Landing), 1 = Gitár, 2 = Ének. Futás közben
-    // váltható (a Landing képernyőről és a nézetek "menü" gombjáról). Nem kerül
-    // az állapotba — minden indításkor a Landing képernyő jön be.
+    // App mode: 0 = none selected (Landing), 1 = Guitar, 2 = Vocals. Switchable
+    // at runtime (from the Landing screen and the views' "menu" button). Not
+    // persisted in the state — the Landing screen comes up on every startup.
     enum class AppMode { none = 0, guitar = 1, vocal = 2 };
     int  getAppMode() const noexcept { return appMode.load(); }
     void setAppMode (int m) noexcept { appMode.store (m); }
 
     //==============================================================================
-    // Bemeneti csatorna kiválasztása MÓDONKÉNT külön (a Scarlett több bemenete
-    // közül melyiket figyelje az adott lánc). 0-alapú index; a processBlock CSAK
-    // ezt az egy csatornát veszi (nem keveri össze a bemeneteket), így a mikrofon
-    // nem szivárog be a gitár láncba és fordítva. Perzisztálódik az állapotban.
+    // Input channel selection PER MODE separately (which of the Scarlett's
+    // several inputs the given chain should listen to). 0-based index; processBlock
+    // takes ONLY this single channel (it does not mix the inputs together), so the
+    // microphone does not leak into the guitar chain and vice versa. Persisted in the state.
     int  getGuitarInputCh() const noexcept { return guitarInputCh.load(); }
     int  getVocalInputCh()  const noexcept { return vocalInputCh.load(); }
     void setGuitarInputCh (int ch) noexcept { guitarInputCh.store (juce::jmax (0, ch)); }
     void setVocalInputCh  (int ch) noexcept { vocalInputCh.store  (juce::jmax (0, ch)); }
 
-    // A jelenleg AKTÍV modulok által hozzáadott latencia (mintában) — dinamikus,
-    // követi a kapcsolók állását (pl. pitch be/ki). Az élő kijelzőhöz.
+    // Latency (in samples) added by the currently ACTIVE modules — dynamic,
+    // follows the switch states (e.g. pitch on/off). For the live display.
     int getEffectiveLatencySamples() const noexcept;
 
-    // A hangolóhoz: a legfrissebb 'numToCopy' nyers bemeneti mintát másolja
-    // időrendben a dest-be (üzenetszálról hívandó). A hangszállal való enyhe
-    // versengés a hangolónál elfogadható.
+    // For the tuner: copies the most recent 'numToCopy' raw input samples
+    // in chronological order into dest (call from the message thread). The slight
+    // contention with the audio thread is acceptable for the tuner.
     void copyRecentInput (float* dest, int numToCopy) const noexcept;
 
     juce::AudioProcessorValueTreeState apvts;
@@ -110,7 +110,7 @@ private:
     std::atomic<int> vocalInputCh  { 0 };
 
     //==============================================================================
-    // DSP modulok — gitár jelút
+    // DSP modules — guitar signal chain
     NoiseGate     gate;
     Overdrive     overdrive;
     PitchShifter  pitchShifter;
@@ -118,7 +118,7 @@ private:
     CabConvolver  cab;
     Equalizer     eq;
 
-    // DSP modul — ének jelút
+    // DSP module — vocals signal chain
     VoiceChain    vocal;
 
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLine { 96000 };
@@ -131,18 +131,18 @@ private:
     juce::SmoothedValue<float> delayMixSmoothed      { 0.0f };
     juce::SmoothedValue<float> delayFeedbackSmoothed { 0.0f };
 
-    // Mono munkapuffer (a gitár jelút mono a NAM-ig).
+    // Mono work buffer (the guitar signal chain is mono up to the NAM).
     juce::AudioBuffer<float> monoBuffer;
 
     double currentSampleRate { 48000.0 };
     int    currentBlockSize  { 0 };
 
-    // Tuner: körkörös puffer a nyers (pre-gain) monó bemenetről.
+    // Tuner: circular buffer for the raw (pre-gain) mono input.
     static constexpr int tunerRingSize = 16384;
     std::vector<float> tunerRing;
     std::atomic<int>   tunerWrite { 0 };
 
-    // Gyorsított paraméter-pointerek
+    // Cached parameter pointers
     std::atomic<float>* pInputGain   { nullptr };
     std::atomic<float>* pOutputGain  { nullptr };
     std::atomic<float>* pGateOn      { nullptr };
@@ -167,7 +167,7 @@ private:
     std::atomic<float>* pEqOn        { nullptr };
     std::array<std::atomic<float>*, Equalizer::numBands> pEqBands { };
 
-    // Ének paraméter-pointerek
+    // Vocals parameter pointers
     std::atomic<float>* pVocGain       { nullptr };
     std::atomic<float>* pVocGateOn     { nullptr };
     std::atomic<float>* pVocGateThresh { nullptr };

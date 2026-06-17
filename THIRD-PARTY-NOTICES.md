@@ -1,46 +1,49 @@
-# Harmadik féltől származó komponensek / Third-Party Notices
+# Third-Party Notices
 
-A **LiveDSP** a **GNU General Public License v3.0** (GPLv3) alatt érhető el —
-lásd a [LICENSE](LICENSE) fájlt. Ezt a választást az alábbi (copyleft)
-függőségek teszik szükségessé. A projekt az itt felsorolt komponenseket
-használja; mindegyik a saját licencének feltételei szerint.
+**LiveDSP** is distributed under the **GNU General Public License v3.0** (GPLv3)
+— see the [LICENSE](LICENSE) file. That choice is required by the (copyleft)
+dependencies below. The project uses the components listed here; each under the
+terms of its own license.
 
-| Komponens | Verzió | Licenc | Megjegyzés |
+| Component | Version | License | Note |
 |---|---|---|---|
-| [JUCE](https://juce.com) | 8.0.4 | **GPLv3** (vagy kereskedelmi) | A GPLv3 opció alatt használjuk. |
-| [Rubber Band Library](https://breakfastquay.com/rubberband/) | 4.0.0 | **GPLv2-or-later** (vagy kereskedelmi) | GPLv3-kompatibilis (or-later). |
-| [Steinberg ASIO SDK](https://www.steinberg.net/developers/) | 2.3 | **GPLv3** (vagy proprietary) | A GPLv3 opció alatt használjuk és terjesztjük. |
+| [JUCE](https://juce.com) | 8.0.4 | **GPLv3** (or commercial) | Used under the GPLv3 option. |
+| [Rubber Band Library](https://breakfastquay.com/rubberband/) | 4.0.0 | **GPLv2-or-later** (or commercial) | GPLv3-compatible (or-later). |
+| [Steinberg ASIO SDK](https://www.steinberg.net/developers/) | 2.3 | **GPLv3** (or proprietary) | Used and redistributed under the GPLv3 option. |
 | [NeuralAmpModelerCore](https://github.com/sdatkinson/NeuralAmpModelerCore) | — | MIT | |
 | [Signalsmith Stretch](https://github.com/Signalsmith-Audio/signalsmith-stretch) | — | MIT | + signalsmith-linear (MIT). |
-| [Eigen](https://eigen.tuxfamily.org) | (NAM-mal) | MPL2 (+ egyes fájlok Apache/BSD) | |
-| [nlohmann/json](https://github.com/nlohmann/json) | (NAM-mal) | MIT | |
+| [Eigen](https://eigen.tuxfamily.org) | (with NAM) | MPL2 (+ some files Apache/BSD) | |
+| [nlohmann/json](https://github.com/nlohmann/json) | (with NAM) | MIT | |
 
-## A GPLv3 mint a teljes mű licence
+## GPLv3 as the license of the whole work
 
-A LiveDSP linkeli a fenti **GPL** komponenseket (JUCE GPLv3 opció, Rubber Band
-GPLv2-or-later, ASIO SDK GPLv3). Ezért a teljes, terjesztett alkalmazás a
-**GPLv3** feltételei szerint kerül kiadásra: a megfelelő forráskód elérhető a
-projekt nyilvános repójában (https://github.com/akela91/LiveDSP).
+LiveDSP links the GPL components above (JUCE under its GPLv3 option, Rubber Band
+GPLv2-or-later, ASIO SDK GPLv3). Therefore the complete, distributed application
+is released under the terms of **GPLv3**: the corresponding source code is
+available in the project's public repository
+(https://github.com/akela91/LiveDSP).
 
-## ASIO védjegy (NEM a GPL fedi)
+## ASIO trademark (NOT covered by the GPL)
 
-Az „ASIO” név és a Steinberg ASIO logók a **Steinberg Media Technologies GmbH
-védjegyei**, amelyekre a GPL **nem** terjed ki. A LiveDSP:
+The "ASIO" name and the Steinberg ASIO logos are **trademarks of Steinberg Media
+Technologies GmbH** and are **not** covered by the GPL. LiveDSP:
 
-- nem használja az „ASIO” szót a termék- vagy cégnévben;
-- nem terjeszti a Steinberg ASIO logó-artworköt (ezért az nincs a repóban sem);
-- az „ASIO” kifejezést kizárólag termékfunkció-kontextusban (audio-driver
-  választó) jeleníti meg, a Steinberg ASIO Usage Guidelines szellemében.
+- does not use the word "ASIO" in the product or company name;
+- does not redistribute the Steinberg ASIO logo artwork (which is therefore not
+  in the repository either);
+- displays "ASIO" only in a product-feature context (the audio-driver selector),
+  in the spirit of the Steinberg ASIO Usage Guidelines.
 
-## ASIO4ALL (ha az installer tartalmazza)
+## ASIO4ALL (if the installer offers it)
 
-Az [ASIO4ALL](https://asio4all.org) (© Michael Tippach) **nem** része a LiveDSP
-forrásának és **nincs hozzá linkelve**; ha a telepítő tartalmazza, az
-*különálló program puszta aggregációja* (a GPL értelmében), a saját
-freeware-licence feltételei szerint terjesztve.
+[ASIO4ALL](https://asio4all.org) (© Michael Tippach) is **not** part of the
+LiveDSP source and is **not** linked into it. The installer does not bundle it;
+it only offers to open the official download page. ASIO4ALL is distributed under
+the terms of its own freeware license.
 
-## Modellek / IR fájlok
+## Models / IR files
 
-A `models/` mappában lévő NAM-captúrák és impulzusválaszok **adatfájlok**, nem a
-program részei; a saját (esetenként kereskedelmi) licencük vonatkozik rájuk,
-amely független a LiveDSP GPLv3 licencétől.
+The NAM captures and impulse responses are **data files**, not part of the
+program; they are covered by their own (sometimes commercial) licenses, which
+are independent of LiveDSP's GPLv3 license. They are neither version-controlled
+nor shipped with the app.

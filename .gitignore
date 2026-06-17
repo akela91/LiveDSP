@@ -1,9 +1,9 @@
-# Build kimenetek
+# Build outputs
 /build/
 /out/
 cmake-build-*/
 
-# Installer kimenet (a lefordított Setup.exe-t nem verziózzuk; az .iss igen)
+# Installer output (the compiled Setup.exe is not versioned; the .iss is)
 /installer/Output/
 
 # IDE
@@ -16,13 +16,15 @@ cmake-build-*/
 Thumbs.db
 .DS_Store
 
-# ASIO SDK: a Steinberg ASIO SDK GPLv3 variánsa VERZIÓKÖVETHETŐ (a build
-# fordítási idejű függősége) — ezért már NEM ignoráljuk az egészet.
-# KIVÉTEL: a Steinberg ASIO logó-artwork VÉDJEGY, NEM a GPL fedi → ezt nem
-# verziózzuk (és a terméken sem használjuk).
+# ASIO SDK: the Steinberg ASIO SDK GPLv3 variant IS version-controlled (it is a
+# build-time dependency), so we no longer ignore the whole folder.
+# EXCEPTION: the Steinberg ASIO logo artwork is a TRADEMARK, not covered by the
+# GPL -> we do not version it (and do not use it in the product).
 /ext/ASIOSDK/Steinberg ASIO Logo Artwork/
 
-# A modelleket NEM verziókövetjük (nagy bináris fájlok + a kereskedelmi
-# NAM-captúrák licence). Lokálisan a build így is használja őket a
-# GUITARDSP_DEFAULT_MODELS_DIR útvonalon keresztül.
+# Models and presets are NOT version-controlled or shipped: the commercial NAM
+# captures cannot be redistributed. End users get a writable
+# <Documents>/LiveDSP/{models,favs} folder; for development the build still uses
+# any local folders here via LIVEDSP_DEFAULT_MODELS_DIR / LIVEDSP_FAVS_DIR.
 /models/
+/favs/

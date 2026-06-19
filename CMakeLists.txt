@@ -1,4 +1,3 @@
-# 3.24 is required by the Signalsmith Stretch bundled CMakeLists.
 cmake_minimum_required(VERSION 3.24)
 
 project(LiveDSP VERSION 0.1.0 LANGUAGES C CXX)
@@ -38,25 +37,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
-# --- Signalsmith Stretch (pitch shifter, header-only, MIT) ----------------
-# Its own CMakeLists creates the 'signalsmith-stretch' INTERFACE target and
-# pulls in the 'signalsmith-linear' dependency via FetchContent. We use that,
-# NOT a hand-rolled interface lib (the root header would not compile without
-# signalsmith-linear). Include: "signalsmith-stretch/signalsmith-stretch.h".
-FetchContent_Declare(
-    signalsmith_stretch
-    GIT_REPOSITORY https://github.com/Signalsmith-Audio/signalsmith-stretch.git
-    GIT_TAG        main
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(signalsmith_stretch)
-
 # --- Rubber Band Library (pitch shifter, GPL/commercial) -------------------
 # The repo is Meson/Makefile based with no usable CMakeLists. So we use the
 # SOURCE_SUBDIR trick to only DOWNLOAD the source, then build a static lib from
 # the official single translation unit (single/RubberBandSingle.cpp): it uses
 # the built-in FFT and resampler with no external dependencies, single-threaded
-# (NO_THREADING). Include: <rubberband/RubberBandStretcher.h>.
+# (NO_THREADING). Include: <rubberband/RubberBandLiveShifter.h>.
 FetchContent_Declare(
     rubberband_src
     GIT_REPOSITORY https://github.com/breakfastquay/rubberband.git
@@ -181,7 +167,6 @@ if (LIVEDSP_HAS_ASIO)
 endif()
 
 target_link_libraries(LiveDSP PRIVATE
-    signalsmith-stretch
     rubberband
     # WHOLE_ARCHIVE: the NAM architectures register themselves with file-scope
     # static initializers (e.g. SlimmableContainer in container.cpp). For a

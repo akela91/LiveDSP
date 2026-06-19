@@ -510,19 +510,19 @@ private:
 };
 
 //==============================================================================
-/** PITCH panel: power + SEMI/LAT knobs + engine selector (Signalsmith/RubberBand). */
-class PitchPanel : public PanelBase
+/** TRANSPOSE panel: power + SEMI knob + engine selector + RB Live quality.
+    The two combos are kept on purpose — the engine selector currently has the
+    single "RB Live" entry, but is the home for FUTURE alternative algorithms. */
+class TransposePanel : public PanelBase
 {
 public:
-    explicit PitchPanel (APVTS& state)
+    explicit TransposePanel (APVTS& state)
     {
         power = std::make_unique<PowerButton> (state, "pitchOn");
         addAndMakeVisible (*power);
 
         semi = std::make_unique<KnobControl> (state, "pitchSemitones", "SEMI");
-        lat  = std::make_unique<KnobControl> (state, "pitchLatency",   "LAT");
         addAndMakeVisible (*semi);
-        addAndMakeVisible (*lat);
 
         auto styleCombo = [] (juce::ComboBox& c)
         {
@@ -532,14 +532,13 @@ public:
             c.setColour (juce::ComboBox::outlineColourId,    juce::Colours::transparentBlack);
         };
 
-        engine.addItem ("Signalsmith", 1);
-        engine.addItem ("RubberBand",  2);
-        engine.addItem ("RB Live",     3);
+        // Engine selector (one entry for now; reserved for future algorithms).
+        engine.addItem ("RB Live", 1);
         styleCombo (engine);
         addAndMakeVisible (engine);
         engineAtt = std::make_unique<APVTS::ComboBoxAttachment> (state, "pitchEngine", engine);
 
-        // RB Live quality/latency profile (only relevant for the RB Live engine).
+        // RB Live quality/latency profile.
         quality.addItem ("Fast", 1);
         quality.addItem ("Fine", 2);
         styleCombo (quality);
@@ -547,7 +546,7 @@ public:
         qualityAtt = std::make_unique<APVTS::ComboBoxAttachment> (state, "pitchLiveQuality", quality);
     }
 
-    int getPreferredWidth() const override { return 200; }
+    int getPreferredWidth() const override { return 196; }
 
     void paint (juce::Graphics& g) override
     {
@@ -562,7 +561,7 @@ public:
 
         g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
-        g.drawText ("PITCH", header.toNearestInt().reduced (10, 0).withTrimmedRight (24),
+        g.drawText ("TRANSPOSE", header.toNearestInt().reduced (10, 0).withTrimmedRight (24),
                     juce::Justification::centredLeft);
     }
 
@@ -574,27 +573,81 @@ public:
 
         r.reduce (8, 6);
 
-        // Bottom row: engine selector (left) + RB Live quality (right). The quality
-        // combo is wider so the "Fast"/"Fine" labels don't get clipped.
-        auto bottom = r.removeFromBottom (20);
-        quality.setBounds (bottom.removeFromRight (juce::jmin (76, bottom.getWidth() / 2)));
-        bottom.removeFromRight (4);
-        engine.setBounds (bottom);
-        r.removeFromBottom (4);
+        // Right column: the two selectors (engine + RB Live quality) stacked and
+        // vertically centred, so the big SEMI knob on the left matches the GATE knob.
+        auto right = r.removeFromRight (78);
+        {
+            const int comboH = 22, gap = 8;
+            auto stack = right.withSizeKeepingCentre (right.getWidth(), comboH * 2 + gap);
+            engine.setBounds  (stack.removeFromTop (comboH));
+            stack.removeFromTop (gap);
+            quality.setBounds (stack.removeFromTop (comboH));
+        }
+        r.removeFromRight (8);   // gap between the knob and the combo column
 
-        const int w = r.getWidth() / 2;
-        semi->setBounds (r.removeFromLeft (w).reduced (2));
-        lat->setBounds  (r.reduced (2));
+        // SEMI knob: full content height, centred — identical sizing to the GATE panel.
+        const int kh = juce::jmin (r.getHeight(), 108);
+        semi->setBounds (r.withSizeKeepingCentre (juce::jmin (r.getWidth(), 66), kh));
     }
 
 private:
     std::unique_ptr<PowerButton>  power;
     std::unique_ptr<KnobControl>  semi;
-    std::unique_ptr<KnobControl>  lat;
     juce::ComboBox                engine;
     juce::ComboBox                quality;
     std::unique_ptr<APVTS::ComboBoxAttachment> engineAtt;
     std::unique_ptr<APVTS::ComboBoxAttachment> qualityAtt;
+};
+
+//==============================================================================
+/** AUTOTUNE panel (vocals): power + a single AMOUNT knob. Autotune always snaps
+    to the nearest note; AMOUNT is just "how aggressively it intervenes". The knob
+    is sized/laid out exactly like the GATE panel's knob. */
+class AutotunePanel : public PanelBase
+{
+public:
+    explicit AutotunePanel (APVTS& state)
+    {
+        power = std::make_unique<PowerButton> (state, "vocAutotuneOn");
+        addAndMakeVisible (*power);
+
+        amount = std::make_unique<KnobControl> (state, "vocAutotuneAmount", "AMOUNT");
+        addAndMakeVisible (*amount);
+    }
+
+    int getPreferredWidth() const override { return 120; }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto b = getLocalBounds().toFloat();
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
+        g.fillRoundedRectangle (b, 8.0f);
+
+        auto header = b.removeFromTop (24.0f);
+        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
+        g.fillRoundedRectangle (header, 8.0f);
+        g.fillRect (header.withTop (header.getCentreY()));
+
+        g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
+        g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
+        g.drawText ("AUTOTUNE", header.toNearestInt().reduced (10, 0).withTrimmedRight (24),
+                    juce::Justification::centredLeft);
+    }
+
+    void resized() override
+    {
+        auto r = getLocalBounds();
+        auto header = r.removeFromTop (24);
+        power->setBounds (header.removeFromRight (24).reduced (4));
+
+        r.reduce (8, 6);
+        const int kh = juce::jmin (r.getHeight(), 108);
+        amount->setBounds (r.withSizeKeepingCentre (juce::jmin (r.getWidth(), 66), kh));
+    }
+
+private:
+    std::unique_ptr<PowerButton> power;
+    std::unique_ptr<KnobControl> amount;
 };
 
 //==============================================================================

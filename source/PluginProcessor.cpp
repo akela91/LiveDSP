@@ -17,8 +17,6 @@ LiveDspProcessor::LiveDspProcessor()
     pGateThresh = apvts.getRawParameterValue ("gateThreshold");
     pPitchOn    = apvts.getRawParameterValue ("pitchOn");
     pPitchSemis = apvts.getRawParameterValue ("pitchSemitones");
-    pPitchLat   = apvts.getRawParameterValue ("pitchLatency");
-    pPitchEngine = apvts.getRawParameterValue ("pitchEngine");
     pPitchLiveQ  = apvts.getRawParameterValue ("pitchLiveQuality");
     pDriveOn    = apvts.getRawParameterValue ("driveOn");
     pDriveAmt   = apvts.getRawParameterValue ("driveAmount");
@@ -51,12 +49,10 @@ LiveDspProcessor::LiveDspProcessor()
     pVocDelayMix   = apvts.getRawParameterValue ("vocDelayMix");
     pVocReverbOn   = apvts.getRawParameterValue ("vocReverbOn");
     pVocReverbMix  = apvts.getRawParameterValue ("vocReverbMix");
+    pVocAutoOn     = apvts.getRawParameterValue ("vocAutotuneOn");
+    pVocAutoAmount = apvts.getRawParameterValue ("vocAutotuneAmount");
 
-    // Live reconfiguration of the pitch latency (on the message thread).
-    apvts.addParameterListener ("pitchLatency", this);
-    // On an engine switch, the pitch shifter state must be reset on the message thread.
-    apvts.addParameterListener ("pitchEngine", this);
-    // Live reconfiguration of the RB Live quality profile (on the message thread).
+    // Live reconfiguration of the Transpose RB Live quality profile (message thread).
     apvts.addParameterListener ("pitchLiveQuality", this);
 
     // Development convenience: load the first NAM model and IR from the default
@@ -105,22 +101,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout LiveDspProcessor::createPara
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "gateThreshold", 1 },
         "Gate Threshold", NormalisableRange<float> { -80.0f, 0.0f, 0.1f }, -55.0f));
 
-    // Pitch (Transpose)
-    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "pitchOn", 1 }, "Pitch On", false));
+    // Transpose (formerly "Pitch") — Rubber Band LiveShifter, low latency.
+    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "pitchOn", 1 }, "Transpose On", false));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "pitchSemitones", 1 },
         "Transpose", NormalisableRange<float> { -12.0f, 12.0f, 1.0f }, 0.0f));
-    // Pitch latency/quality: lower = lower latency (more artifacts),
-    // higher = better quality (higher latency). Reconfigures the engine live.
-    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "pitchLatency", 1 },
-        "Pitch Latency", NormalisableRange<float> { 8.0f, 80.0f, 1.0f }, 40.0f));
-    // Pitch engine (default: RubberBand): 0 = Signalsmith (adjustable
-    // latency), 1 = Rubber Band Stretcher (R3 'Finer', good polyphonic quality),
-    // 2 = Rubber Band LiveShifter (v4, lowest latency). The 'pitchLatency'
-    // knob only affects the Signalsmith engine.
+    // Transpose engine selector — kept for FUTURE alternative algorithms; for now
+    // there is a single engine (RB Live = Rubber Band LiveShifter v4, lowest latency).
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "pitchEngine", 1 },
-        "Pitch Engine", StringArray { "Signalsmith", "RubberBand", "RB Live" }, 2));
-    // RB Live quality profile (only affects the RB Live engine): Fast = lowest
-    // latency (short window), Fine = better quality (medium window + formant).
+        "Transpose Engine", StringArray { "RB Live" }, 0));
+    // RB Live quality profile: Fast = lowest latency (short window, best overall),
+    // Fine = medium window + formant preservation (better detuned timbre).
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "pitchLiveQuality", 1 },
         "RB Live Quality", StringArray { "Fast", "Fine" }, 0));
 
@@ -206,6 +196,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout LiveDspProcessor::createPara
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocReverbMix", 1 },
         "Vocal Reverb Mix", NormalisableRange<float> { 0.0f, 100.0f, 1.0f }, 20.0f));
 
+    // Autotune (low-latency pitch correction; runs before the rest of the chain).
+    // It always snaps to the NEAREST note; a single AMOUNT controls how
+    // aggressively it intervenes (the processor maps it to both the correction
+    // strength and the retune speed).
+    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocAutotuneOn", 1 }, "Vocal Autotune On", false));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocAutotuneAmount", 1 },
+        "Vocal Autotune Amount", NormalisableRange<float> { 0.0f, 100.0f, 1.0f }, 75.0f));
+
     return layout;
 }
 
@@ -220,15 +218,15 @@ void LiveDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     gate.prepare (monoSpec);
     overdrive.prepare (monoSpec);
-    if (pPitchLat != nullptr)
-        pitchShifter.setBlockMs (pPitchLat->load());
     pitchShifter.prepare (monoSpec);
     nam.prepare (monoSpec);
 
     cab.prepare (stereoSpec);
     eq.prepare (stereoSpec);
 
-    // The vocals chain works on a stereo block (mono microphone on both channels).
+    // Autotune runs on the mono microphone signal; the vocals chain works on a
+    // stereo block (mono microphone copied onto both channels).
+    autotune.prepare (monoSpec);
     vocal.prepare (stereoSpec);
 
     // Max delay length aligned to the actual sample rate (max parameter 1500 ms + headroom).
@@ -276,7 +274,6 @@ void LiveDspProcessor::updateParametersFromApvts() noexcept
 
     pitchShifter.setEnabled   (pPitchOn->load() > 0.5f);
     pitchShifter.setSemitones (pPitchSemis->load());
-    pitchShifter.setEngine      ((int) pPitchEngine->load());
     pitchShifter.setLiveQuality ((int) pPitchLiveQ->load());
 
     overdrive.setEnabled (pDriveOn->load() > 0.5f);
@@ -307,18 +304,7 @@ void LiveDspProcessor::updateParametersFromApvts() noexcept
 void LiveDspProcessor::parameterChanged (const juce::String& parameterID, float newValue)
 {
     // Called from the standalone UI on the message thread -> safe to reconfigure.
-    if (parameterID == "pitchLatency")
-    {
-        pitchShifter.setBlockMs ((double) newValue);
-        pitchShifter.reconfigure();
-    }
-    else if (parameterID == "pitchEngine")
-    {
-        // Clean switch: clear the selected engine + FIFO state.
-        pitchShifter.setEngine ((int) newValue);
-        pitchShifter.reset();
-    }
-    else if (parameterID == "pitchLiveQuality")
+    if (parameterID == "pitchLiveQuality")
     {
         // RB Live profile switch: the shifter must be rebuilt (the window option is
         // decided in the constructor), so we reconfigure it on the message thread.
@@ -454,6 +440,14 @@ void LiveDspProcessor::updateVocalFromApvts() noexcept
     vocal.setAirEnabled    (pVocAirOn->load()    > 0.5f);
     vocal.setDelayEnabled  (pVocDelayOn->load()  > 0.5f);
     vocal.setReverbEnabled (pVocReverbOn->load() > 0.5f);
+
+    // A single "aggressiveness" knob (0..100 %): it scales how far the note is
+    // pulled AND how fast it snaps (100 % = full snap, ~instant / "robotic";
+    // lower = gentler & slower / more natural).
+    const float agg = pVocAutoAmount->load();
+    autotune.setEnabled  (pVocAutoOn->load() > 0.5f);
+    autotune.setAmount   (agg);
+    autotune.setRetuneMs (juce::jmap (agg, 0.0f, 100.0f, 120.0f, 3.0f));
 }
 
 void LiveDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
@@ -473,6 +467,9 @@ void LiveDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
     if (numIn > 0)
         monoBuffer.copyFrom (0, 0, buffer, vCh, 0, numSamples);
 
+    // Autotune (low-latency pitch correction) on the mono signal, before the chain.
+    autotune.process (mono, numSamples);
+
     for (int ch = 0; ch < numOut; ++ch)
         buffer.copyFrom (ch, 0, mono, numSamples);
 
@@ -484,7 +481,11 @@ void LiveDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
 //==============================================================================
 int LiveDspProcessor::getEffectiveLatencySamples() const noexcept
 {
-    // The vocals chain is zero-latency throughout (IIR/comp/reverb/limiter).
+    // Vocals: the chain itself is zero-latency (IIR/comp/reverb/limiter); only
+    // Autotune adds latency, and only while it is switched on.
+    if ((AppMode) appMode.load() == AppMode::vocal)
+        return autotune.getLatencySamples();
+
     if ((AppMode) appMode.load() != AppMode::guitar)
         return 0;
 

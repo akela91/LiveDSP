@@ -61,7 +61,8 @@ public:
         compPanel->enableLed (true);
         row1.add (compPanel);
 
-        // Row 2 — air, delay, reverb, limiter.
+        // Row 2 — autotune, air, delay, reverb, limiter.
+        row2.add (new AutotunePanel (s));
         row2.add (new ModulePanel (s, "AIR", "vocAirOn", { { "vocAir", "AIR" } }));
         row2.add (new ModulePanel (s, "DELAY", "vocDelayOn",
                                    { { "vocDelayTime", "TIME" }, { "vocDelayMix", "MIX" } }));
@@ -76,7 +77,7 @@ public:
 
     ~VoiceView() override { stopTimer(); }
 
-    int defaultWidth()  const override { return 820; }
+    int defaultWidth()  const override { return 900; }
     int defaultHeight() const override { return 440; }
 
     void paint (juce::Graphics& g) override
@@ -137,8 +138,10 @@ private:
         const double sr = processorRef.getSampleRate();
         if (sr > 0.0)
         {
-            // The vocal chain is zero-latency; only the in/out buffering (~2 blocks) matters.
-            const double samples = 2.0 * processorRef.getCurrentBlockSize();
+            // The vocal chain is zero-latency; only Autotune (when on) + the in/out
+            // buffering (~2 blocks) matter.
+            const double samples = processorRef.getEffectiveLatencySamples()
+                                   + 2.0 * processorRef.getCurrentBlockSize();
             latencyLabel.setText ("Latency ~ " + juce::String (samples / sr * 1000.0, 1) + " ms",
                                   juce::dontSendNotification);
         }

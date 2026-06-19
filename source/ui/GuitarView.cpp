@@ -82,11 +82,12 @@ void GuitarView::buildPanels()
     gatePanel->enableLed (true);
     row1.add (gatePanel);
 
-    row1.add (new PitchPanel (processorRef.apvts));
+    row1.add (new TransposePanel (processorRef.apvts));
     row1.add (new ModulePanel (processorRef.apvts, "DRIVE",  "driveOn",
                                { { "driveAmount", "DRIVE" }, { "driveTone", "TONE" }, { "driveLevel", "LEVEL" } }));
 
-    ampPanel = new ComboPanel (processorRef.apvts, "AMP/RIG", "namOn", ComboPanel::Icon::amp);
+    // AMP/RIG is widened (it absorbs the space freed by the slimmer Transpose panel).
+    ampPanel = new ComboPanel (processorRef.apvts, "AMP/RIG", "namOn", ComboPanel::Icon::amp, 260);
     // Browse: import an external .nam rig; it is copied into the writable models
     // folder and loaded. The download link points to a free rig to try and is
     // shown only while no model is loaded yet (see updateStatusLabel()).

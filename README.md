@@ -28,7 +28,7 @@ At the input you can **choose, per mode**, which interface channel to listen to
 
 ### GuitarDSP module (guitar)
 ```
-In → Input Gain → Noise Gate → Pitch (Transpose) → Overdrive
+In → Input Gain → Noise Gate → Transpose → Overdrive
    → Amp (NAM) → Cab IR → EQ → Delay → Reverb → Output Gain → Out
 ```
 The signal chain is mono up to the NAM stage and stereo afterwards. The NAM
@@ -38,20 +38,24 @@ external `.nam` rig, and a download link (shown until the first model is loaded)
 A LED on the **GATE** panel lights when the noise gate is ducking. 9-band
 graphic EQ, a live latency readout, a visual tuner, and a preset selector.
 
-**Pitch engines** (from the PITCH panel's engine selector): Signalsmith Stretch,
-RubberBand Stretcher (R3 "Finer"), and **RubberBand LiveShifter (v4)** — the
-default, for the lowest latency. Goal: −4 semitone power chords at good quality
-with minimal latency.
+**Transpose engine**: **RubberBand LiveShifter (v4)** — the lowest-latency live
+pitch shifter — with two quality profiles (**Fast** = shortest window/latency,
+**Fine** = medium window + formant preservation). The **TRANSPOSE** panel keeps
+an engine selector (a single "RB Live" entry today) reserved for future
+alternative algorithms. Goal: −4 semitone power chords at good quality with
+minimal latency.
 
 ### VoiceDSP module (vocals)
+An optional **Autotune** stage runs first (on the mono signal), followed by the
 `juce::dsp::ProcessorChain`, strictly in this order:
 ```
-In → Input Gain → Low-Cut (90 Hz) → Noise Gate → Warmth (tanh)
+In → [Autotune] → Input Gain → Low-Cut (90 Hz) → Noise Gate → Warmth (tanh)
    → Compressor → High-Shelf "Air" (6 kHz) → Delay → Reverb → Brickwall Limiter → Out
 ```
 The GATE and COMP panels get an activity LED (lit while ducking / compressing).
 | Module | Control | Fixed setting |
 |---|---|---|
+| Autotune | AMOUNT 0…100% | snaps to nearest note; RubberBand LiveShifter, formant-preserving |
 | Input Gain | GAIN 0…+24 dB | — |
 | Low-Cut | — | 90 Hz high-pass |
 | Noise Gate | GATE −80…−20 dB | ratio 10:1, attack 2 ms, release 150 ms |
@@ -62,9 +66,14 @@ The GATE and COMP panels get an activity LED (lit while ducking / compressing).
 | Reverb | MIX 0…100% | medium room (room/damp) |
 | Limiter | — | −0.1 dB ceiling (clip protection) |
 
-The whole vocal chain is **zero-latency**; all settings (every vocal parameter)
-are persisted in the state. COMP/AIR/REVERB and GATE/WARMTH/DELAY can each be
-toggled on/off.
+**Autotune** is a low-latency pitch corrector: it detects the sung note and
+glides it to the **nearest** note automatically. A single **AMOUNT** knob sets
+how aggressively it intervenes — it scales both how far the note is pulled and
+how fast it snaps (0 % = off, 100 % = full, ~instant "robotic" correction).
+
+The vocal chain itself is **zero-latency** (Autotune adds latency only while it
+is switched on). All settings (every vocal parameter) are persisted in the state.
+COMP/AIR/REVERB and GATE/WARMTH/DELAY can each be toggled on/off.
 
 ## Models / rigs (NAM) and IRs
 
@@ -126,8 +135,7 @@ left empty (no error), and older presets without this info still load fine.
 
 CMake `FetchContent` downloads automatically:
 - **JUCE 8.0.4** (GPLv3 option)
-- **Signalsmith Stretch** (pitch shifter, MIT)
-- **RubberBand Library v4.0.0** (Stretcher + LiveShifter, single-file build, GPLv2-or-later)
+- **RubberBand Library v4.0.0** (LiveShifter, single-file build, GPLv2-or-later)
 - **NeuralAmpModelerCore** (+ Eigen, nlohmann/json)
 
 Bundled in the repo:
@@ -231,7 +239,8 @@ cmake --build build --config Release
 - `LiveDspEditor`: a thin shell that shows an `AppView` per mode
   (`LandingView` / `GuitarView` / `VoiceView`).
 - DSP modules: `source/dsp/` (NoiseGate, Overdrive, PitchShifter, NamProcessor,
-  CabConvolver, Equalizer, VoiceChain). UI: `source/ui/` (shared `LiveLookAndFeel` + panels).
+  CabConvolver, Equalizer, VoiceChain, Autotune, PitchDetector). UI: `source/ui/`
+  (shared `LiveLookAndFeel` + panels).
 
 ## License
 

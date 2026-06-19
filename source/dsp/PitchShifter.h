@@ -6,74 +6,43 @@
 #include <cmath>
 #include <memory>
 
-// Signalsmith Stretch (header-only, MIT). The include path is provided by the
-// 'signalsmith-stretch' CMake target (include/ folder), which transitively
-// pulls in the signalsmith-linear dependency as well.
-#include "signalsmith-stretch/signalsmith-stretch.h"
-
 // Rubber Band Library (GPL/commercial). The single-file build's static lib
-// (single/RubberBandSingle.cpp) compiles BOTH classes:
-//  - RubberBandStretcher: real-time (OptionProcessRealTime) time/pitch.
-//  - RubberBandLiveShifter (v4): specifically the lowest-latency live pitch.
-#include <rubberband/RubberBandStretcher.h>
+// (single/RubberBandSingle.cpp) provides RubberBandLiveShifter (v4): the
+// lowest-latency live pitch shifter — for live monitoring.
 #include <rubberband/RubberBandLiveShifter.h>
 
 /**
-    Real-time, polyphonic pitch shifter with THREE selectable engines.
+    Real-time, low-latency Transpose (pitch shifter) built on the Rubber Band
+    LiveShifter (v4): fixed block size (getBlockSize) shift(), designed for the
+    lowest latency — for live monitoring.
 
-    - Signalsmith Stretch: live-adjustable block size (the 'Pitch Latency'
-      knob), 1:1 block processing with internal fixed latency.
-    - Rubber Band Stretcher (R3 'Finer', OptionProcessRealTime): good polyphonic
-      quality (power chords), higher fixed engine latency.
-    - Rubber Band LiveShifter (v4): fixed block size (getBlockSize) shift(),
-      designed for the lowest latency — for live monitoring.
+    The engine is selectable in the UI for FUTURE alternatives, but currently only
+    "RB Live" exists. Its quality/latency profile has two presets:
+      - Fast: short window for the lowest latency (the best overall).
+      - Fine: medium window + formant preservation (better detuned timbre).
 
     For drop tuning: -12 .. +12 semitones (without time stretching, at a 1:1 ratio).
     Operates on a mono signal (the guitar signal chain is mono up to the NAM).
 
-    reconfigure/reset/prepare must be called from the MESSAGE THREAD (may allocate); process()
-    uses a tryLock on the audio thread (skips 1 block at the moment of the swap).
-    getLatencySamples() returns the ACTIVE engine's atomically cached latency.
+    reconfigureLive/reset/prepare must be called from the MESSAGE THREAD (may allocate);
+    process() uses a tryLock on the audio thread (skips 1 block at the moment of the swap).
+    getLatencySamples() returns the engine's atomically cached latency.
 */
 class PitchShifter
 {
 public:
-    enum class Engine { signalsmith = 0, rubberband = 1, rubberbandLive = 2 };
-
     void prepare (const juce::dsp::ProcessSpec& spec)
     {
         sampleRate   = spec.sampleRate;
         maxBlockSize = (int) spec.maximumBlockSize;
 
-        scratchIn.assign  ((size_t) maxBlockSize, 0.0f);
-        scratchOut.assign ((size_t) maxBlockSize, 0.0f);
-        rbScratch.assign  ((size_t) maxBlockSize, 0.0f);
-
         const juce::SpinLock::ScopedLockType sl (lock);
-        configureStretch();
-        configureRubberBand();
         configureLiveShifter();
-    }
-
-    // STFT block length in ms for the Signalsmith engine (smaller = lower latency).
-    void setBlockMs (double ms) noexcept { blockMs = juce::jlimit (8.0, 120.0, ms); }
-
-    // Live reconfiguration with the new blockMs (Signalsmith) — call from the MESSAGE THREAD.
-    void reconfigure()
-    {
-        const juce::SpinLock::ScopedLockType sl (lock);
-        configureStretch();
     }
 
     void reset()
     {
         const juce::SpinLock::ScopedLockType sl (lock);
-        stretch.reset();
-        if (rubberBand != nullptr)
-        {
-            rubberBand->reset();
-            rbOut.clear();
-        }
         if (liveShifter != nullptr)
         {
             liveShifter->reset();
@@ -83,8 +52,6 @@ public:
     }
 
     void setEnabled (bool shouldBeEnabled) noexcept { enabled = shouldBeEnabled; }
-
-    void setEngine (int e) noexcept { engine.store (e); }
 
     // RB Live quality/latency profile: 0 = Fast (short window, lowest latency),
     // 1 = Fine (medium window + formant preservation, better timbre, slightly more latency).
@@ -103,16 +70,7 @@ public:
         currentSemitones.store (juce::jlimit (-12.0f, 12.0f, semitones));
     }
 
-    int getLatencySamples() const noexcept
-    {
-        switch ((Engine) engine.load())
-        {
-            case Engine::rubberband:     return rbLatency.load();
-            case Engine::rubberbandLive: return lsLatency.load();
-            case Engine::signalsmith:
-            default:                     return latencyInSamples.load();
-        }
-    }
+    int getLatencySamples() const noexcept { return lsLatency.load(); }
 
     // Mono, in-place processing (numSamples <= maxBlockSize).
     void process (float* samples, int numSamples) noexcept
@@ -122,23 +80,12 @@ public:
 
         // tryLock: if a reconfigure/reset is in progress (message thread), skip the block.
         const juce::SpinLock::ScopedTryLockType sl (lock);
-        if (! sl.isLocked())
+        if (! sl.isLocked() || liveShifter == nullptr)
             return;
 
         jassert (numSamples <= maxBlockSize);
 
-        switch ((Engine) engine.load())
-        {
-            case Engine::rubberband:
-                if (rubberBand != nullptr) { processRubberBand (samples, numSamples); return; }
-                break;
-            case Engine::rubberbandLive:
-                if (liveShifter != nullptr) { processLiveShifter (samples, numSamples); return; }
-                break;
-            default:
-                break;
-        }
-        processSignalsmith (samples, numSamples);
+        processLiveShifter (samples, numSamples);
     }
 
 private:
@@ -203,77 +150,6 @@ private:
     };
 
     //==========================================================================
-    // Signalsmith engine
-    //==========================================================================
-    void processSignalsmith (float* samples, int numSamples) noexcept
-    {
-        stretch.setTransposeSemitones (currentSemitones.load());
-
-        std::copy (samples, samples + numSamples, scratchIn.begin());
-        float* inPtrs[1]  { scratchIn.data() };
-        float* outPtrs[1] { scratchOut.data() };
-        stretch.process (inPtrs, numSamples, outPtrs, numSamples);
-        std::copy (scratchOut.begin(), scratchOut.begin() + numSamples, samples);
-    }
-
-    void configureStretch()
-    {
-        const int block    = juce::jmax (128, juce::roundToInt (sampleRate * blockMs * 0.001));
-        const int interval = juce::jmax (1, block / 4);
-        stretch.configure (1, block, interval);
-        stretch.setTransposeSemitones (currentSemitones.load());
-        stretch.reset();
-        latencyInSamples.store ((int) std::lround (stretch.inputLatency() + stretch.outputLatency()));
-    }
-
-    //==========================================================================
-    // Rubber Band Stretcher (real-time, R3 'Finer')
-    //==========================================================================
-    void processRubberBand (float* samples, int numSamples) noexcept
-    {
-        const double scale = std::pow (2.0, (double) currentSemitones.load() / 12.0);
-        if (scale != rbPitchScale)
-        {
-            rubberBand->setPitchScale (scale);
-            rbPitchScale = scale;
-        }
-
-        const float* inPtr[1] { samples };
-        rubberBand->process (inPtr, (size_t) numSamples, false);
-
-        for (int avail = rubberBand->available(); avail > 0; avail = rubberBand->available())
-        {
-            const int chunk = juce::jmin (avail, maxBlockSize);
-            float* outPtr[1] { rbScratch.data() };
-            const int got = (int) rubberBand->retrieve (outPtr, (size_t) chunk);
-            if (got <= 0)
-                break;
-            rbOut.push (rbScratch.data(), got);
-        }
-
-        rbOut.popOrZero (samples, numSamples);
-    }
-
-    void configureRubberBand()
-    {
-        using RB = RubberBand::RubberBandStretcher;
-
-        const int opts = RB::OptionProcessRealTime
-                       | RB::OptionEngineFiner
-                       | RB::OptionPitchHighQuality;
-
-        rbPitchScale = std::pow (2.0, (double) currentSemitones.load() / 12.0);
-
-        rubberBand = std::make_unique<RB> ((size_t) sampleRate, 1,
-                                           (RB::Options) opts, 1.0, rbPitchScale);
-        rubberBand->setMaxProcessSize ((size_t) maxBlockSize);
-
-        const int delay = (int) rubberBand->getStartDelay();
-        rbOut.setCapacityAtLeast (delay + 8 * maxBlockSize + 16);
-        rbLatency.store (delay);
-    }
-
-    //==========================================================================
     // Rubber Band LiveShifter (v4) — fixed block size, lowest latency
     //==========================================================================
     void processLiveShifter (float* samples, int numSamples) noexcept
@@ -327,30 +203,16 @@ private:
     }
 
     //==========================================================================
-    signalsmith::stretch::SignalsmithStretch<float> stretch;
-    std::unique_ptr<RubberBand::RubberBandStretcher>  rubberBand;
     std::unique_ptr<RubberBand::RubberBandLiveShifter> liveShifter;
     juce::SpinLock lock;
 
     double sampleRate   { 48000.0 };
     int    maxBlockSize { 512 };
     bool   enabled      { false };
-    double blockMs      { 40.0 };
 
-    std::atomic<int>   engine           { (int) Engine::rubberbandLive };
     std::atomic<int>   liveQuality      { 0 };   // 0 = Fast, 1 = Fine
     std::atomic<float> currentSemitones { 0.0f };
-    std::atomic<int>   latencyInSamples { 0 };   // Signalsmith
-    std::atomic<int>   rbLatency        { 0 };   // Rubber Band Stretcher
-    std::atomic<int>   lsLatency        { 0 };   // Rubber Band LiveShifter
-
-    std::vector<float> scratchIn;
-    std::vector<float> scratchOut;
-    std::vector<float> rbScratch;
-
-    // Rubber Band Stretcher output FIFO.
-    MonoRing rbOut;
-    double   rbPitchScale { 1.0 };
+    std::atomic<int>   lsLatency        { 0 };
 
     // LiveShifter input/output FIFO + fixed block scratch.
     MonoRing lsIn, lsOut;

@@ -11,7 +11,6 @@ terms of its own license.
 | [Rubber Band Library](https://breakfastquay.com/rubberband/) | 4.0.0 | **GPLv2-or-later** (or commercial) | GPLv3-compatible (or-later). |
 | [Steinberg ASIO SDK](https://www.steinberg.net/developers/) | 2.3 | **GPLv3** (or proprietary) | Used and redistributed under the GPLv3 option. |
 | [NeuralAmpModelerCore](https://github.com/sdatkinson/NeuralAmpModelerCore) | — | MIT | |
-| [Signalsmith Stretch](https://github.com/Signalsmith-Audio/signalsmith-stretch) | — | MIT | + signalsmith-linear (MIT). |
 | [Eigen](https://eigen.tuxfamily.org) | (with NAM) | MPL2 (+ some files Apache/BSD) | |
 | [nlohmann/json](https://github.com/nlohmann/json) | (with NAM) | MIT | |
 

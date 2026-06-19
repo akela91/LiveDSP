@@ -9,6 +9,7 @@
 #include "dsp/CabConvolver.h"
 #include "dsp/Equalizer.h"
 #include "dsp/VoiceChain.h"
+#include "dsp/Autotune.h"
 
 /**
     GuitarDSP — dual-mode standalone audio app: GUITAR amp simulator + VOCALS
@@ -118,7 +119,8 @@ private:
     CabConvolver  cab;
     Equalizer     eq;
 
-    // DSP module — vocals signal chain
+    // DSP modules — vocals signal chain
+    Autotune      autotune;   // runs (mono) before the VoiceChain
     VoiceChain    vocal;
 
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLine { 96000 };
@@ -149,8 +151,6 @@ private:
     std::atomic<float>* pGateThresh  { nullptr };
     std::atomic<float>* pPitchOn     { nullptr };
     std::atomic<float>* pPitchSemis  { nullptr };
-    std::atomic<float>* pPitchLat    { nullptr };
-    std::atomic<float>* pPitchEngine { nullptr };
     std::atomic<float>* pPitchLiveQ  { nullptr };
     std::atomic<float>* pDriveOn     { nullptr };
     std::atomic<float>* pDriveAmt    { nullptr };
@@ -183,6 +183,8 @@ private:
     std::atomic<float>* pVocDelayMix   { nullptr };
     std::atomic<float>* pVocReverbOn   { nullptr };
     std::atomic<float>* pVocReverbMix  { nullptr };
+    std::atomic<float>* pVocAutoOn     { nullptr };
+    std::atomic<float>* pVocAutoAmount { nullptr };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LiveDspProcessor)
 };

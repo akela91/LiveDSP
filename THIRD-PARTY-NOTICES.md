@@ -8,7 +8,6 @@ terms of its own license.
 | Component | Version | License | Note |
 |---|---|---|---|
 | [JUCE](https://juce.com) | 8.0.4 | **GPLv3** (or commercial) | Used under the GPLv3 option. |
-| [Rubber Band Library](https://breakfastquay.com/rubberband/) | 4.0.0 | **GPLv2-or-later** (or commercial) | GPLv3-compatible (or-later). |
 | [Steinberg ASIO SDK](https://www.steinberg.net/developers/) | 2.3 | **GPLv3** (or proprietary) | Used and redistributed under the GPLv3 option. |
 | [NeuralAmpModelerCore](https://github.com/sdatkinson/NeuralAmpModelerCore) | — | MIT | |
 | [Eigen](https://eigen.tuxfamily.org) | (with NAM) | MPL2 (+ some files Apache/BSD) | |
@@ -16,8 +15,8 @@ terms of its own license.
 
 ## GPLv3 as the license of the whole work
 
-LiveDSP links the GPL components above (JUCE under its GPLv3 option, Rubber Band
-GPLv2-or-later, ASIO SDK GPLv3). Therefore the complete, distributed application
+LiveDSP links the GPL components above (JUCE under its GPLv3 option, ASIO SDK
+GPLv3). Therefore the complete, distributed application
 is released under the terms of **GPLv3**: the corresponding source code is
 available in the project's public repository
 (https://github.com/akela91/LiveDSP).

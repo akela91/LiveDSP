@@ -37,30 +37,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
-# --- Rubber Band Library (pitch shifter, GPL/commercial) -------------------
-# The repo is Meson/Makefile based with no usable CMakeLists. So we use the
-# SOURCE_SUBDIR trick to only DOWNLOAD the source, then build a static lib from
-# the official single translation unit (single/RubberBandSingle.cpp): it uses
-# the built-in FFT and resampler with no external dependencies, single-threaded
-# (NO_THREADING). Include: <rubberband/RubberBandLiveShifter.h>.
-FetchContent_Declare(
-    rubberband_src
-    GIT_REPOSITORY https://github.com/breakfastquay/rubberband.git
-    GIT_TAG        v4.0.0
-    GIT_SHALLOW    TRUE
-    SOURCE_SUBDIR  _do_not_build   # non-existent subdir -> no add_subdirectory
-)
-FetchContent_MakeAvailable(rubberband_src)
-
-add_library(rubberband STATIC "${rubberband_src_SOURCE_DIR}/single/RubberBandSingle.cpp")
-target_compile_features(rubberband PUBLIC cxx_std_20)
-# SYSTEM: also suppresses Rubber Band's third-party warnings in consumers.
-# The root needs it both for the "rubberband/...h" public headers AND for the
-# internal source files' "rubberband/...h" includes.
-target_include_directories(rubberband SYSTEM PUBLIC "${rubberband_src_SOURCE_DIR}")
-if (MSVC)
-    target_compile_definitions(rubberband PRIVATE _USE_MATH_DEFINES NOMINMAX WIN32_LEAN_AND_MEAN)
-endif()
+# (Pitch shifting — both the guitar Transpose and the vocal Autotune — runs on
+#  our own header-only GranularPitchShifter, so no external shifter library.)
 
 # --- Neural Amp Modeler Core (MIT) ----------------------------------------
 # Its own CMakeLists only builds the 'tools' utilities (with GCC/Clang flags
@@ -174,7 +152,6 @@ endif()
 
 target_link_libraries(LiveDSP PRIVATE
     LiveDSPData
-    rubberband
     # WHOLE_ARCHIVE: the NAM architectures register themselves with file-scope
     # static initializers (e.g. SlimmableContainer in container.cpp). For a
     # static lib, MSVC would drop the unreferenced object files -> the

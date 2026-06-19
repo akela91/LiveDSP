@@ -76,7 +76,7 @@ In → [Autotune] → Input Gain → Low-Cut (90 Hz) → Noise Gate → Warmth (
 The GATE and COMP panels get an activity LED (lit while ducking / compressing).
 | Module | Control | Fixed setting |
 |---|---|---|
-| Autotune | AMOUNT 0…100% | snaps to nearest note; RubberBand LiveShifter, formant-preserving |
+| Autotune | AMOUNT 0…100% | snaps to nearest note; custom granular shifter (~8 ms) |
 | Input Gain | GAIN 0…+24 dB | — |
 | Low-Cut | — | 90 Hz high-pass |
 | Noise Gate | GATE −80…−20 dB | ratio 10:1, attack 2 ms, release 150 ms |
@@ -87,10 +87,12 @@ The GATE and COMP panels get an activity LED (lit while ducking / compressing).
 | Reverb | MIX 0…100% | medium room (room/damp) |
 | Limiter | — | −0.1 dB ceiling (clip protection) |
 
-**Autotune** is a low-latency pitch corrector: it detects the sung note and
-glides it to the **nearest** note automatically. A single **AMOUNT** knob sets
-how aggressively it intervenes — it scales both how far the note is pulled and
-how fast it snaps (0 % = off, 100 % = full, ~instant "robotic" correction).
+**Autotune** is a low-latency pitch corrector running on the **same custom
+granular shifter** as the guitar Transpose (here calibrated for a single voice):
+it detects the sung note and glides it to the **nearest** note automatically. A
+single **AMOUNT** knob sets how aggressively it intervenes — it scales both how
+far the note is pulled and how fast it snaps (0 % = off, 100 % = full, ~instant
+"robotic" correction).
 
 The vocal chain itself is **zero-latency** (Autotune adds latency only while it
 is switched on). All settings (every vocal parameter) are persisted in the state.
@@ -156,8 +158,10 @@ left empty (no error), and older presets without this info still load fine.
 
 CMake `FetchContent` downloads automatically:
 - **JUCE 8.0.4** (GPLv3 option)
-- **RubberBand Library v4.0.0** (LiveShifter, single-file build, GPLv2-or-later)
 - **NeuralAmpModelerCore** (+ Eigen, nlohmann/json)
+
+Pitch shifting (guitar Transpose and vocal Autotune) uses our own header-only
+granular shifter — no external pitch-shifting library.
 
 Bundled in the repo:
 - **Steinberg ASIO SDK** (`ext/ASIOSDK/`, **GPLv3** variant) — no manual download
@@ -267,7 +271,7 @@ cmake --build build --config Release
 
 LiveDSP is distributed under the **GNU General Public License v3.0** (GPLv3) —
 see the [LICENSE](LICENSE) file. This is required by the GPL dependencies (JUCE
-under its GPLv3 option, Rubber Band GPLv2-or-later, Steinberg ASIO SDK GPLv3).
+under its GPLv3 option, Steinberg ASIO SDK GPLv3).
 The third-party components and their licenses are listed in
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 

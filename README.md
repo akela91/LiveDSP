@@ -1,6 +1,6 @@
 # LiveDSP
 
-**A standalone, low-latency Windows audio app for live guitar and vocals — built with JUCE 8, in a clean dark modular UI.**
+**A standalone, low-latency Windows audio app for live guitar and vocals — no plugin host or DAW needed.**
 
 LiveDSP is a real-time monitoring application with **two modules in a single
 `.exe`**: a landing screen at startup lets you pick **GuitarDSP** (a guitar amp /
@@ -58,12 +58,18 @@ the delay other software incurs, while keeping **−2 semitone power chords tigh
 and musical**. A single **GRAIN** knob trades latency against smoothness, and the
 on-screen latency readout updates live as you turn it.
 
-How it works: one circular buffer is written continuously; two read pointers
-chase the writer at the pitch ratio (slower → lower pitch). Each pointer wraps
-every grain and they are offset by half a grain, each weighted by a Hann window —
-two half-offset Hann windows sum to exactly 1.0 and reach zero at the splice, so
-the grain "jump" is fully cross-faded out (no clicks). Reads use 4-point Hermite
-interpolation. See [`source/dsp/GranularPitchShifter.h`](source/dsp/GranularPitchShifter.h).
+<details>
+<summary>How it works (technical)</summary>
+
+One circular buffer is written continuously; two read pointers chase the writer
+at the pitch ratio (slower → lower pitch). Each pointer wraps every grain and
+they are offset by half a grain, each weighted by a Hann window — two
+half-offset Hann windows sum to exactly 1.0 and reach zero at the splice, so
+the grain "jump" is fully cross-faded out (no clicks). Reads use 4-point
+Hermite interpolation. See
+[`source/dsp/GranularPitchShifter.h`](source/dsp/GranularPitchShifter.h).
+
+</details>
 
 ## Designed for the Focusrite Scarlett Solo
 
@@ -296,12 +302,12 @@ cmake --build build --config Release
 > redistributed by the installer, as the author grants no public redistribution
 > permission). Without ASIO the WASAPI fallback works, at higher latency.
 
-## Testing
+## Quick start
 
 1. Launch the standalone `.exe` and pick **GuitarDSP** or **VoiceDSP** on the landing screen.
-2. Audio Settings (Options) → choose the Focusrite **ASIO** driver and set a low buffer (64/128).
-3. On the INPUT panel, select the correct input channel (guitar / microphone separately).
-4. Use the "‹ MENU" button to go back and switch modes at any time.
+2. **Options** → choose your audio interface ASIO driver and set a low buffer (64/128 samples).
+3. On the **INPUT** panel, select the correct input channel (guitar / microphone separately).
+4. Use the **"‹ MENU"** button to go back and switch modes at any time.
 
 ## Architecture (in brief)
 

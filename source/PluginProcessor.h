@@ -23,8 +23,7 @@
     Vocals signal chain (mono microphone -> stereo, VoiceChain ProcessorChain):
       In -> [Gain] -> [LowCut 90Hz] -> [Comp] -> [Air 6kHz] -> [Reverb] -> [Limiter] -> Out
 */
-class LiveDspProcessor  : public juce::AudioProcessor,
-                            private juce::AudioProcessorValueTreeState::Listener
+class LiveDspProcessor  : public juce::AudioProcessor
 {
 public:
     LiveDspProcessor();
@@ -109,7 +108,6 @@ private:
     void updateVocalFromApvts() noexcept;
     void processGuitar (juce::AudioBuffer<float>& buffer) noexcept;
     void processVocal  (juce::AudioBuffer<float>& buffer) noexcept;
-    void parameterChanged (const juce::String& parameterID, float newValue) override;
 
     std::atomic<int> appMode       { (int) AppMode::none };
     std::atomic<int> guitarInputCh { 0 };
@@ -161,7 +159,7 @@ private:
     std::atomic<float>* pGateThresh  { nullptr };
     std::atomic<float>* pPitchOn     { nullptr };
     std::atomic<float>* pPitchSemis  { nullptr };
-    std::atomic<float>* pPitchLiveQ  { nullptr };
+    std::atomic<float>* pPitchGrain  { nullptr };
     std::atomic<float>* pDriveOn     { nullptr };
     std::atomic<float>* pDriveAmt    { nullptr };
     std::atomic<float>* pDriveTone   { nullptr };

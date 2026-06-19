@@ -10,6 +10,25 @@ are reused.
 > It is not a plugin and does not play backing tracks — it only processes the
 > incoming signal and sends it to the output for live monitoring.
 
+## ⚡ Headline feature: ultra-low-latency Transpose
+
+GuitarDSP's **Transpose** runs on a **custom granular pitch shifter** — a two-tap
+crossfade, time-domain design written from scratch specifically for live playing.
+
+Typical real-time pitch shifters (STFT / phase-vocoder, as used by most plugins)
+add roughly **40–60 ms** of latency, which is unusable for tight riffing. This
+one adds only **~grain ⁄ 2 — about 12 ms at the default grain** — a *fraction* of
+the delay other software incurs, while keeping **−2 semitone power chords tight
+and musical**. A single **GRAIN** knob trades latency against smoothness, and the
+on-screen latency readout updates live as you turn it.
+
+How it works: one circular buffer is written continuously; two read pointers
+chase the writer at the pitch ratio (slower → lower pitch). Each pointer wraps
+every grain and they are offset by half a grain, each weighted by a Hann window —
+two half-offset Hann windows sum to exactly 1.0 and reach zero at the splice, so
+the grain "jump" is fully cross-faded out (no clicks). Reads use 4-point Hermite
+interpolation. See [`source/dsp/GranularPitchShifter.h`](source/dsp/GranularPitchShifter.h).
+
 ## Designed for the Focusrite Scarlett Solo
 
 LiveDSP is built first and foremost for the **Focusrite Scarlett Solo** (and
@@ -38,12 +57,14 @@ external `.nam` rig, and a download link (shown until the first model is loaded)
 A LED on the **GATE** panel lights when the noise gate is ducking. 9-band
 graphic EQ, a live latency readout, a visual tuner, and a preset selector.
 
-**Transpose engine**: **RubberBand LiveShifter (v4)** — the lowest-latency live
-pitch shifter — with two quality profiles (**Fast** = shortest window/latency,
-**Fine** = medium window + formant preservation). The **TRANSPOSE** panel keeps
-an engine selector (a single "RB Live" entry today) reserved for future
-alternative algorithms. Goal: −4 semitone power chords at good quality with
-minimal latency.
+**Transpose** (the headline feature above): the **SEMI** knob sets the shift
+(−12…+12 semitones) and the **GRAIN** knob sets the granular grain size
+(8–40 ms) — smaller = lower latency (~grain ⁄ 2) but more warble, larger =
+smoother. There is a single, purpose-built granular engine, so there are no
+engine/quality drop-downs to fiddle with. Tuning tip: the granular colouration
+is smallest when **grain ⁄ 2 ≈ the note's period**, so a low-E power chord
+(~82 Hz, ~12 ms period) sits in a sweet spot around the 24 ms default; drop
+tunings want a slightly larger grain.
 
 ### VoiceDSP module (vocals)
 An optional **Autotune** stage runs first (on the mono signal), followed by the
@@ -238,9 +259,9 @@ cmake --build build --config Release
   a runtime-switchable `appMode` (none/guitar/voice) drives `processBlock`.
 - `LiveDspEditor`: a thin shell that shows an `AppView` per mode
   (`LandingView` / `GuitarView` / `VoiceView`).
-- DSP modules: `source/dsp/` (NoiseGate, Overdrive, PitchShifter, NamProcessor,
-  CabConvolver, Equalizer, VoiceChain, Autotune, PitchDetector). UI: `source/ui/`
-  (shared `LiveLookAndFeel` + panels).
+- DSP modules: `source/dsp/` (NoiseGate, Overdrive, PitchShifter,
+  GranularPitchShifter, NamProcessor, CabConvolver, Equalizer, VoiceChain,
+  Autotune, PitchDetector). UI: `source/ui/` (shared `LiveLookAndFeel` + panels).
 
 ## License
 
@@ -253,8 +274,3 @@ The third-party components and their licenses are listed in
 > The "ASIO" name and logo are **Steinberg** trademarks not covered by the GPL;
 > LiveDSP does not use the name in its product/company name and does not
 > redistribute the logo.
-
-## Credits (icons)
-
-- Landing guitar icon: [game-icons.net](https://game-icons.net) (lorc), **CC BY 3.0**.
-- Landing microphone icon: [Phosphor Icons](https://phosphoricons.com) (microphone-stage), **MIT**.

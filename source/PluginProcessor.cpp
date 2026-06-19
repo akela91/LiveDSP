@@ -17,7 +17,7 @@ LiveDspProcessor::LiveDspProcessor()
     pGateThresh = apvts.getRawParameterValue ("gateThreshold");
     pPitchOn    = apvts.getRawParameterValue ("pitchOn");
     pPitchSemis = apvts.getRawParameterValue ("pitchSemitones");
-    pPitchLiveQ  = apvts.getRawParameterValue ("pitchLiveQuality");
+    pPitchGrain  = apvts.getRawParameterValue ("pitchGrain");
     pDriveOn    = apvts.getRawParameterValue ("driveOn");
     pDriveAmt   = apvts.getRawParameterValue ("driveAmount");
     pDriveTone  = apvts.getRawParameterValue ("driveTone");
@@ -51,9 +51,6 @@ LiveDspProcessor::LiveDspProcessor()
     pVocReverbMix  = apvts.getRawParameterValue ("vocReverbMix");
     pVocAutoOn     = apvts.getRawParameterValue ("vocAutotuneOn");
     pVocAutoAmount = apvts.getRawParameterValue ("vocAutotuneAmount");
-
-    // Live reconfiguration of the Transpose RB Live quality profile (message thread).
-    apvts.addParameterListener ("pitchLiveQuality", this);
 
     // Development convenience: load the first NAM model and IR from the default
     // models/ folder ALREADY in the constructor (before the editor), so that the
@@ -101,18 +98,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout LiveDspProcessor::createPara
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "gateThreshold", 1 },
         "Gate Threshold", NormalisableRange<float> { -80.0f, 0.0f, 0.1f }, -55.0f));
 
-    // Transpose (formerly "Pitch") — Rubber Band LiveShifter, low latency.
+    // Transpose (formerly "Pitch") — custom granular (two-tap crossfade) shifter.
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "pitchOn", 1 }, "Transpose On", false));
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "pitchSemitones", 1 },
         "Transpose", NormalisableRange<float> { -12.0f, 12.0f, 1.0f }, 0.0f));
-    // Transpose engine selector — kept for FUTURE alternative algorithms; for now
-    // there is a single engine (RB Live = Rubber Band LiveShifter v4, lowest latency).
-    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "pitchEngine", 1 },
-        "Transpose Engine", StringArray { "RB Live" }, 0));
-    // RB Live quality profile: Fast = lowest latency (short window, best overall),
-    // Fine = medium window + formant preservation (better detuned timbre).
-    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "pitchLiveQuality", 1 },
-        "RB Live Quality", StringArray { "Fast", "Fine" }, 0));
+    // Grain size in ms: the quality/latency lever. Smaller = lower latency
+    // (~grain/2) but more warble; larger = smoother. 24 ms ≈ ~12 ms latency.
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "pitchGrain", 1 },
+        "Transpose Grain", NormalisableRange<float> { 8.0f, 40.0f, 0.5f }, 24.0f));
 
     // Overdrive
     layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "driveOn", 1 }, "Drive On", false));
@@ -274,7 +267,7 @@ void LiveDspProcessor::updateParametersFromApvts() noexcept
 
     pitchShifter.setEnabled   (pPitchOn->load() > 0.5f);
     pitchShifter.setSemitones (pPitchSemis->load());
-    pitchShifter.setLiveQuality ((int) pPitchLiveQ->load());
+    pitchShifter.setGrainMs   (pPitchGrain->load());
 
     overdrive.setEnabled (pDriveOn->load() > 0.5f);
     overdrive.setDrive   (pDriveAmt->load());
@@ -299,18 +292,6 @@ void LiveDspProcessor::updateParametersFromApvts() noexcept
     reverbParams.roomSize = juce::jmap (rv, 0.0f, 1.0f, 0.3f, 0.9f);
     reverbParams.width    = 1.0f;
     reverb.setParameters (reverbParams);
-}
-
-void LiveDspProcessor::parameterChanged (const juce::String& parameterID, float newValue)
-{
-    // Called from the standalone UI on the message thread -> safe to reconfigure.
-    if (parameterID == "pitchLiveQuality")
-    {
-        // RB Live profile switch: the shifter must be rebuilt (the window option is
-        // decided in the constructor), so we reconfigure it on the message thread.
-        pitchShifter.setLiveQuality ((int) newValue);
-        pitchShifter.reconfigureLive();
-    }
 }
 
 void LiveDspProcessor::processBlock (juce::AudioBuffer<float>& buffer,

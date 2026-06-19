@@ -564,9 +564,9 @@ private:
 };
 
 //==============================================================================
-/** TRANSPOSE panel: power + SEMI knob + engine selector + RB Live quality.
-    The two combos are kept on purpose — the engine selector currently has the
-    single "RB Live" entry, but is the home for FUTURE alternative algorithms. */
+/** TRANSPOSE panel: power + SEMI & GRAIN knobs. The pitch shift runs on our custom
+    low-latency granular shifter; GRAIN is the quality/latency lever (smaller grain
+    = less latency, more warble). No engine/quality selectors — there is one engine. */
 class TransposePanel : public PanelBase
 {
 public:
@@ -575,32 +575,13 @@ public:
         power = std::make_unique<PowerButton> (state, "pitchOn");
         addAndMakeVisible (*power);
 
-        semi = std::make_unique<KnobControl> (state, "pitchSemitones", "SEMI");
+        semi  = std::make_unique<KnobControl> (state, "pitchSemitones", "SEMI");
+        grain = std::make_unique<KnobControl> (state, "pitchGrain",     "GRAIN");
         addAndMakeVisible (*semi);
-
-        auto styleCombo = [] (juce::ComboBox& c)
-        {
-            c.setColour (juce::ComboBox::backgroundColourId, juce::Colour (LiveLookAndFeel::cPanelHead));
-            c.setColour (juce::ComboBox::textColourId,       juce::Colour (LiveLookAndFeel::cText));
-            c.setColour (juce::ComboBox::arrowColourId,      juce::Colour (LiveLookAndFeel::cAccent));
-            c.setColour (juce::ComboBox::outlineColourId,    juce::Colours::transparentBlack);
-        };
-
-        // Engine selector (one entry for now; reserved for future algorithms).
-        engine.addItem ("RB Live", 1);
-        styleCombo (engine);
-        addAndMakeVisible (engine);
-        engineAtt = std::make_unique<APVTS::ComboBoxAttachment> (state, "pitchEngine", engine);
-
-        // RB Live quality/latency profile.
-        quality.addItem ("Fast", 1);
-        quality.addItem ("Fine", 2);
-        styleCombo (quality);
-        addAndMakeVisible (quality);
-        qualityAtt = std::make_unique<APVTS::ComboBoxAttachment> (state, "pitchLiveQuality", quality);
+        addAndMakeVisible (*grain);
     }
 
-    int getPreferredWidth() const override { return 196; }
+    int getPreferredWidth() const override { return 150; }
 
     void paint (juce::Graphics& g) override
     {
@@ -627,30 +608,17 @@ public:
 
         r.reduce (8, 6);
 
-        // Right column: the two selectors (engine + RB Live quality) stacked and
-        // vertically centred, so the big SEMI knob on the left matches the GATE knob.
-        auto right = r.removeFromRight (78);
-        {
-            const int comboH = 22, gap = 8;
-            auto stack = right.withSizeKeepingCentre (right.getWidth(), comboH * 2 + gap);
-            engine.setBounds  (stack.removeFromTop (comboH));
-            stack.removeFromTop (gap);
-            quality.setBounds (stack.removeFromTop (comboH));
-        }
-        r.removeFromRight (8);   // gap between the knob and the combo column
-
-        // SEMI knob: full content height, centred — identical sizing to the GATE panel.
+        // Two full-height knobs (SEMI + GRAIN), GATE-sized.
         const int kh = juce::jmin (r.getHeight(), 108);
-        semi->setBounds (r.withSizeKeepingCentre (juce::jmin (r.getWidth(), 66), kh));
+        const int w  = r.getWidth() / 2;
+        semi->setBounds  (r.removeFromLeft (w).withSizeKeepingCentre (juce::jmin (w, 66), kh));
+        grain->setBounds (r.withSizeKeepingCentre (juce::jmin (r.getWidth(), 66), kh));
     }
 
 private:
     std::unique_ptr<PowerButton>  power;
     std::unique_ptr<KnobControl>  semi;
-    juce::ComboBox                engine;
-    juce::ComboBox                quality;
-    std::unique_ptr<APVTS::ComboBoxAttachment> engineAtt;
-    std::unique_ptr<APVTS::ComboBoxAttachment> qualityAtt;
+    std::unique_ptr<KnobControl>  grain;
 };
 
 //==============================================================================

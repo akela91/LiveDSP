@@ -21,6 +21,23 @@ visual tuner are shared.
   </a>
 </p>
 
+## Download
+
+> **Windows 64-bit only** — no VC++ Redistributable required (statically linked).
+
+| | |
+|---|---|
+| 🟦 **[LiveDSP-Setup-0.2.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.2.0/LiveDSP-Setup-0.2.0.exe)** | **Recommended** — one-click installer, adds a Start Menu shortcut |
+| 📦 **[LiveDSP-Standalone-0.2.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.2.0/LiveDSP-Standalone-0.2.0.exe)** | Portable — just run the `.exe`, nothing installed |
+
+All releases: [github.com/akela91/LiveDSP/releases](https://github.com/akela91/LiveDSP/releases)
+
+> **After installing:** launch LiveDSP, open **Options** to pick your audio interface (ASIO recommended),
+> then add a free NAM rig via the in-app **Browse** button or the download link on the AMP/RIG panel
+> (see [Models / rigs](#models--rigs-nam-and-irs) below).
+
+---
+
 ### Highlights
 
 - ⚡ **Ultra-low-latency Transpose** — a custom granular pitch shifter, ~12 ms (details below).

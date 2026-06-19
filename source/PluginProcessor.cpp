@@ -363,6 +363,9 @@ void LiveDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexcept
     // 1) Input Gain
     inputGain.applyGain (mono, numSamples);
 
+    // INPUT meter: the post-gain level entering the chain.
+    updateInputMeter (mono, numSamples, 1.0f);
+
     // 2) Noise Gate
     gate.process (mono, numSamples);
 
@@ -467,6 +470,9 @@ void LiveDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
     if (numIn > 0)
         monoBuffer.copyFrom (0, 0, buffer, vCh, 0, numSamples);
 
+    // INPUT meter: the raw mic level scaled by the (chain-internal) vocal gain.
+    updateInputMeter (mono, numSamples, juce::Decibels::decibelsToGain (pVocGain->load()));
+
     // Autotune (low-latency pitch correction) on the mono signal, before the chain.
     autotune.process (mono, numSamples);
 
@@ -499,6 +505,24 @@ int LiveDspProcessor::getEffectiveLatencySamples() const noexcept
 
     // The Cab IR runs in zero-latency mode (0), and the other modules are also 0 latency.
     return s;
+}
+
+//==============================================================================
+void LiveDspProcessor::updateInputMeter (const float* samples, int numSamples, float gainLin) noexcept
+{
+    if (numSamples <= 0)
+        return;
+
+    float peak = 0.0f;
+    for (int i = 0; i < numSamples; ++i)
+        peak = juce::jmax (peak, std::abs (samples[i]));
+    peak *= gainLin;
+
+    // Meter ballistics: instant rise, smooth fall (per block).
+    if (peak > inputLevelEnv) inputLevelEnv = peak;
+    else                      inputLevelEnv = inputLevelEnv * 0.85f + peak * 0.15f;
+
+    inputLevel.store (inputLevelEnv);
 }
 
 //==============================================================================

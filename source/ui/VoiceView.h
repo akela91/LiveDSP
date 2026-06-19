@@ -45,10 +45,11 @@ public:
         auto& s = processorRef.apvts;
 
         // Row 1 — input, filter, gate, warmth, compressor.
-        row1.add (new InputPanel (s, "vocGain", "GAIN",
-                                  processorRef.getTotalNumInputChannels(),
-                                  processorRef.getVocalInputCh(),
-                                  [this] (int ch) { processorRef.setVocalInputCh (ch); }));
+        inputPanel = new InputPanel (s, "vocGain", "GAIN",
+                                     processorRef.getTotalNumInputChannels(),
+                                     processorRef.getVocalInputCh(),
+                                     [this] (int ch) { processorRef.setVocalInputCh (ch); });
+        row1.add (inputPanel);
         row1.add (new InfoPanel  ("LOW CUT", "90 Hz"));
         gatePanel = new ModulePanel (s, "GATE", "vocGateOn", { { "vocGateThresh", "GATE" } });
         gatePanel->enableLed (true);
@@ -151,6 +152,10 @@ private:
             gatePanel->setLedLevel (1.0f - processorRef.getVocalGateGain());
         if (compPanel != nullptr)
             compPanel->setLedLevel (processorRef.getVocalCompReduction());
+
+        // INPUT level meter.
+        if (inputPanel != nullptr)
+            inputPanel->setInputLevel (processorRef.getInputLevel());
     }
 
     LiveDspProcessor& processorRef;
@@ -161,8 +166,9 @@ private:
     juce::Label      infoLabel;
 
     juce::OwnedArray<PanelBase> row1, row2;
-    ModulePanel* gatePanel { nullptr };
-    ModulePanel* compPanel { nullptr };
+    ModulePanel* gatePanel  { nullptr };
+    ModulePanel* compPanel  { nullptr };
+    InputPanel*  inputPanel { nullptr };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VoiceView)
 };

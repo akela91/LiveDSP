@@ -73,10 +73,11 @@ GuitarView::~GuitarView()
 void GuitarView::buildPanels()
 {
     // Row 1 — start of the signal chain: input, gate (with LED), pitch, drive, amp.
-    row1.add (new InputPanel (processorRef.apvts, "inputGain", "IN",
-                              processorRef.getTotalNumInputChannels(),
-                              processorRef.getGuitarInputCh(),
-                              [this] (int ch) { processorRef.setGuitarInputCh (ch); }));
+    inputPanel = new InputPanel (processorRef.apvts, "inputGain", "IN",
+                                 processorRef.getTotalNumInputChannels(),
+                                 processorRef.getGuitarInputCh(),
+                                 [this] (int ch) { processorRef.setGuitarInputCh (ch); });
+    row1.add (inputPanel);
 
     gatePanel = new ModulePanel (processorRef.apvts, "GATE", "gateOn", { { "gateThreshold", "THRESH" } });
     gatePanel->enableLed (true);
@@ -285,6 +286,10 @@ void GuitarView::timerCallback()
     // Update the gate LED (lights up when the gate is ducking).
     if (gatePanel != nullptr)
         gatePanel->setLedLevel (1.0f - processorRef.getGate().getCurrentGain());
+
+    // Update the INPUT level meter.
+    if (inputPanel != nullptr)
+        inputPanel->setInputLevel (processorRef.getInputLevel());
 
     // Keep the UI in sync if the model/IR changed outside the combos (e.g. the
     // standalone "Load state" menu, or restoring a preset).

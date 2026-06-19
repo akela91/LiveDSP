@@ -139,6 +139,12 @@ juce_add_plugin(LiveDSP
 
 juce_generate_juce_header(LiveDSP)
 
+# Landing-screen artwork (GuitarDSP/VoiceDSP) embedded into the binary so it is
+# available at runtime without shipping loose files. Accessed via BinaryData::*.
+juce_add_binary_data(LiveDSPData SOURCES
+    resources/GuitarDSP.png
+    resources/VoiceDSP.png)
+
 target_sources(LiveDSP PRIVATE
     source/PluginProcessor.cpp
     source/PluginEditor.cpp
@@ -167,6 +173,7 @@ if (LIVEDSP_HAS_ASIO)
 endif()
 
 target_link_libraries(LiveDSP PRIVATE
+    LiveDSPData
     rubberband
     # WHOLE_ARCHIVE: the NAM architectures register themselves with file-scope
     # static initializers (e.g. SlimmableContainer in container.cpp). For a

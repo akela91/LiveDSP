@@ -81,6 +81,50 @@ private:
 };
 
 //==============================================================================
+/** Vertical LED level meter: a stack of segments lit from the bottom up, with
+    green (safe) -> yellow (loud) -> red (too hot) colouring. setLevel() takes a
+    linear amplitude (0..1+) and maps it to dBFS over [floorDb .. 0]. */
+class LevelMeter : public juce::Component
+{
+public:
+    // linear amplitude (e.g. peak); 1.0 = 0 dBFS.
+    void setLevel (float linear)
+    {
+        const float db = juce::Decibels::gainToDecibels (linear, floorDb);
+        const float f  = juce::jlimit (0.0f, 1.0f, (db - floorDb) / -floorDb);
+        if (std::abs (f - fill) > 0.004f) { fill = f; repaint(); }
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto r = getLocalBounds().toFloat();
+        const float gap  = 2.0f;
+        const float segH = (r.getHeight() - gap * (numLeds - 1)) / (float) numLeds;
+        const int   lit  = (int) std::ceil (fill * numLeds);
+
+        for (int i = 0; i < numLeds; ++i)   // i = 0 is the BOTTOM LED
+        {
+            const float y = r.getBottom() - (i + 1) * segH - i * gap;
+            juce::Rectangle<float> seg (r.getX(), y, r.getWidth(), segH);
+
+            // Colour by the dBFS this LED represents, so red is only ever reached
+            // when the level is genuinely hot (the top of the scale, near clipping).
+            const float ledDb = floorDb + (float) (i + 1) / numLeds * -floorDb;
+            const juce::Colour col = ledDb > -6.0f  ? juce::Colour (0xffe0533a)   // red: too hot
+                                   : ledDb > -18.0f ? juce::Colour (0xffe0b93a)   // yellow: loud
+                                                    : juce::Colour (0xff35c659);  // green: safe
+            g.setColour ((i < lit) ? col : col.withAlpha (0.12f));
+            g.fillRoundedRectangle (seg, 1.5f);
+        }
+    }
+
+private:
+    static constexpr int   numLeds = 17;       // >= 10 segments
+    static constexpr float floorDb = -54.0f;   // bottom of the scale
+    float fill { 0.0f };
+};
+
+//==============================================================================
 /** Round "power" toggle (accent-colored when enabled). */
 class PowerButton : public juce::Button
 {
@@ -473,9 +517,14 @@ public:
 
         gain = std::make_unique<KnobControl> (state, gainParamId, gainLabel);
         addAndMakeVisible (*gain);
+
+        addAndMakeVisible (meter);
     }
 
-    int getPreferredWidth() const override { return 104; }
+    int getPreferredWidth() const override { return 124; }
+
+    // Feed the LED meter (linear input level, 0..1+); called from the view's timer.
+    void setInputLevel (float linear) { meter.setLevel (linear); }
 
     void paint (juce::Graphics& g) override
     {
@@ -498,7 +547,11 @@ public:
         r.removeFromTop (24);
         r.reduce (8, 6);
         channel.setBounds (r.removeFromTop (22));
-        r.removeFromTop (4);
+        r.removeFromTop (6);
+
+        // Vertical LED meter strip on the left; the gain knob fills the rest.
+        meter.setBounds (r.removeFromLeft (16).reduced (0, 2));
+        r.removeFromLeft (8);
         const int kh = juce::jmin (r.getHeight(), 96);
         gain->setBounds (r.withSizeKeepingCentre (r.getWidth(), kh));
     }
@@ -506,6 +559,7 @@ public:
 private:
     juce::ComboBox channel;
     std::unique_ptr<KnobControl> gain;
+    LevelMeter meter;
     std::function<void (int)> onChannelChange;
 };
 

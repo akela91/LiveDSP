@@ -54,9 +54,10 @@ private:
     juce::OwnedArray<PanelBase> row1, row2;
 
     // The model/IR selector combo boxes live inside these panels (file logic stays here).
-    ComboPanel*  ampPanel  { nullptr };
-    ComboPanel*  cabPanel  { nullptr };
-    ModulePanel* gatePanel { nullptr };
+    ComboPanel*  ampPanel   { nullptr };
+    ComboPanel*  cabPanel   { nullptr };
+    ModulePanel* gatePanel  { nullptr };
+    InputPanel*  inputPanel { nullptr };
 
     juce::Array<juce::File> modelFiles;
     juce::Array<juce::File> irFiles;

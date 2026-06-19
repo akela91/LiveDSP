@@ -67,6 +67,11 @@ public:
     float getVocalGateGain()      const noexcept { return vocal.getGateGain(); }
     float getVocalCompReduction() const noexcept { return vocal.getCompReduction(); }
 
+    // Input signal level for the INPUT panel's LED meter: the peak (linear, post
+    // input-gain) of the signal entering the active chain, with meter ballistics
+    // (fast attack / slow release). Read from the message thread.
+    float getInputLevel() const noexcept { return inputLevel.load(); }
+
     int getCurrentBlockSize() const noexcept { return currentBlockSize; }
 
     //==============================================================================
@@ -138,6 +143,11 @@ private:
 
     double currentSampleRate { 48000.0 };
     int    currentBlockSize  { 0 };
+
+    // INPUT meter: smoothed peak of the signal entering the active chain (0..1+).
+    std::atomic<float> inputLevel { 0.0f };
+    float inputLevelEnv { 0.0f };   // audio-thread envelope (fast rise, slow fall)
+    void  updateInputMeter (const float* samples, int numSamples, float gainLin) noexcept;
 
     // Tuner: circular buffer for the raw (pre-gain) mono input.
     static constexpr int tunerRingSize = 16384;

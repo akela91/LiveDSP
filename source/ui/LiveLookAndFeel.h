@@ -3,8 +3,8 @@
 #include <JuceHeader.h>
 
 /**
-    Modern, dark LookAndFeel for GuitarDSP (Neural DSP-style inspiration).
-    Warm amber accent, dark panels, rotary knobs with curved value indicators.
+    Modern, dark LookAndFeel for LiveDSP.
+    Ice-blue accent, dark panels, rotary knobs with curved value indicators.
 */
 class LiveLookAndFeel : public juce::LookAndFeel_V4
 {

@@ -1,14 +1,33 @@
 # LiveDSP
 
-A standalone, low-latency Windows audio application (JUCE 8) with a Neural DSP /
-Fortin-style UI. **Two modes in a single `.exe`:** a landing screen at startup
-lets you pick one of two modules — **GuitarDSP** (guitar amp simulator) or
-**VoiceDSP** (live microphone channel). Each module has its own panel layout and
-its own DSP signal chain; the shared theme, knob/panel widgets, and the tuner
-are reused.
+**A standalone, low-latency Windows audio app for live guitar and vocals — built with JUCE 8, in a clean dark modular UI.**
+
+LiveDSP is a real-time monitoring application with **two modules in a single
+`.exe`**: a landing screen at startup lets you pick **GuitarDSP** (a guitar amp /
+rig simulator) or **VoiceDSP** (a live microphone channel strip). Each module has
+its own panel layout and DSP signal chain; the theme, knob/panel widgets, and the
+visual tuner are shared.
 
 > It is not a plugin and does not play backing tracks — it only processes the
 > incoming signal and sends it to the output for live monitoring.
+
+<p align="center">
+  <img src="resources/LiveDSP_landing.png" alt="LiveDSP landing screen" width="560">
+</p>
+
+<p align="center">
+  <a href="https://buymeacoffee.com/akela91" target="_blank">
+    <img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20pizza&emoji=%F0%9F%8D%95&slug=akela91&button_colour=4aa8e0&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00" alt="Buy me a pizza" height="44">
+  </a>
+</p>
+
+### Highlights
+
+- ⚡ **Ultra-low-latency Transpose** — a custom granular pitch shifter, ~12 ms (details below).
+- 🎸 **GuitarDSP** — noise gate, transpose, overdrive, NAM amp/rig, cabinet IR, 9-band EQ, delay, reverb, visual tuner.
+- 🎤 **VoiceDSP** — autotune, low-cut, gate, warmth, compressor, "air", delay, reverb, brickwall limiter.
+- 🎚️ **ASIO** low-latency monitoring, per-mode input-channel selection, and input level meters.
+- 📦 A single `.exe` with **no runtime dependencies**, plus an optional one-click installer.
 
 ## ⚡ Headline feature: ultra-low-latency Transpose
 
@@ -46,6 +65,11 @@ At the input you can **choose, per mode**, which interface channel to listen to
 (the choice is remembered), so the microphone and the guitar never get mixed up.
 
 ### GuitarDSP module (guitar)
+
+<p align="center">
+  <img src="resources/LiveDSP_GuitarDSP.png" alt="GuitarDSP module" width="820">
+</p>
+
 ```
 In → Input Gain → Noise Gate → Transpose → Overdrive
    → Amp (NAM) → Cab IR → EQ → Delay → Reverb → Output Gain → Out
@@ -67,6 +91,11 @@ is smallest when **grain ⁄ 2 ≈ the note's period**, so a low-E power chord
 tunings want a slightly larger grain.
 
 ### VoiceDSP module (vocals)
+
+<p align="center">
+  <img src="resources/LiveDSP_VoiceDSP.png" alt="VoiceDSP module" width="820">
+</p>
+
 An optional **Autotune** stage runs first (on the mono signal), followed by the
 `juce::dsp::ProcessorChain`, strictly in this order:
 ```
@@ -266,6 +295,17 @@ cmake --build build --config Release
 - DSP modules: `source/dsp/` (NoiseGate, Overdrive, PitchShifter,
   GranularPitchShifter, NamProcessor, CabConvolver, Equalizer, VoiceChain,
   Autotune, PitchDetector). UI: `source/ui/` (shared `LiveLookAndFeel` + panels).
+
+## Support
+
+LiveDSP is free and open-source. If it is useful to you, you can support its
+development:
+
+<p align="center">
+  <a href="https://buymeacoffee.com/akela91" target="_blank">
+    <img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20pizza&emoji=%F0%9F%8D%95&slug=akela91&button_colour=4aa8e0&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00" alt="Buy me a pizza" height="44">
+  </a>
+</p>
 
 ## License
 

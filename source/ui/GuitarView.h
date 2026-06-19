@@ -6,6 +6,7 @@
 #include "LiveLookAndFeel.h"
 #include "Panels.h"
 #include "AppView.h"
+#include "SupportButton.h"
 
 /**
     Guitar view: the full GuitarDSP amp-simulator UI (top bar with title + model
@@ -49,6 +50,7 @@ private:
     juce::Label      latencyLabel;
     juce::TextButton tunerButton { "TUNER" };
     juce::TextButton menuButton  { juce::String::fromUTF8 ("‹ MENU") };
+    CoffeeButton     coffeeButton;
     TunerComponent   tuner;
 
     juce::OwnedArray<PanelBase> row1, row2;

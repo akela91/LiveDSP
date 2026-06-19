@@ -4,6 +4,7 @@
 #include <BinaryData.h>
 #include "LiveLookAndFeel.h"
 #include "AppView.h"
+#include "SupportButton.h"
 
 /**
     Landing screen: two large "card" buttons — GUITAR (amp simulator) or
@@ -29,6 +30,8 @@ public:
         vocal.subtitle = juce::String::fromUTF8 ("vocals — microphone channel");
         vocal.onClick = [this] { if (onChoose) onChoose (2); };
         addAndMakeVisible (vocal);
+
+        addAndMakeVisible (coffee);
     }
 
     int  defaultWidth()  const override { return 640; }
@@ -52,7 +55,13 @@ public:
 
     void resized() override
     {
-        auto area = getLocalBounds().withTrimmedTop (118).reduced (40, 30);
+        auto full = getLocalBounds();
+
+        // Discreet support button, centred along the bottom.
+        auto bottom = full.removeFromBottom (38);
+        coffee.setBounds (juce::Rectangle<int> (160, 26).withCentre (bottom.getCentre()));
+
+        auto area = full.withTrimmedTop (118).reduced (40, 24);
         const int gap = 24;
         const int w = (area.getWidth() - gap) / 2;
         guitar.setBounds (area.removeFromLeft (w));
@@ -110,4 +119,5 @@ private:
     };
 
     ChoiceCard guitar, vocal;
+    CoffeeButton coffee;
 };

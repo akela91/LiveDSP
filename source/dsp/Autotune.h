@@ -47,6 +47,7 @@ public:
         sinceDetect   = 0;
         pendingTarget = 0.0f;
         currentSemis  = 0.0f;
+        hasPitch      = false;
 
         // Warm the detector up off the audio thread (allocates its work buffers once).
         detector.detect (analysisWork.data(), analysisSize);
@@ -63,6 +64,7 @@ public:
         sinceDetect   = 0;
         pendingTarget = 0.0f;
         currentSemis  = 0.0f;
+        hasPitch      = false;
     }
 
     void  setEnabled  (bool b)    noexcept { enabled.store (b); }
@@ -97,8 +99,22 @@ public:
             if (det.frequency > 0.0f && det.clarity > 0.0f)
             {
                 const float midi = 69.0f + 12.0f * std::log2 (det.frequency / 440.0f);
-                const float nearest = std::round (midi);   // nearest note (chromatic)
-                target = juce::jlimit (-2.0f, 2.0f, nearest - midi) * amount.load();
+
+                // Smooth the detected pitch to reject the jitter of an unsteady
+                // voice, then pick the target note with HYSTERESIS: once locked to a
+                // note we only switch when the (smoothed) pitch moves clearly past
+                // the boundary, so it stops flip-flopping between adjacent notes.
+                if (! hasPitch) { smoothedMidi = midi; heldNote = (int) std::lround (midi); hasPitch = true; }
+                else            { smoothedMidi += pitchSmoothing * (midi - smoothedMidi); }
+
+                if      (smoothedMidi > (float) heldNote + 0.5f + noteHysteresis) heldNote = (int) std::lround (smoothedMidi);
+                else if (smoothedMidi < (float) heldNote - 0.5f - noteHysteresis) heldNote = (int) std::lround (smoothedMidi);
+
+                target = juce::jlimit (-2.0f, 2.0f, (float) heldNote - smoothedMidi) * amount.load();
+            }
+            else
+            {
+                hasPitch = false;   // unvoiced -> re-lock onto the next sung note
             }
             pendingTarget = target;
         }
@@ -160,4 +176,11 @@ private:
     int   sinceDetect   { 0 };
     float pendingTarget { 0.0f };   // latest computed target correction (semitones)
     float currentSemis  { 0.0f };   // smoothed, actually-applied correction
+
+    // Note-tracking state (stability for an unsteady voice).
+    float smoothedMidi  { 0.0f };
+    int   heldNote      { 0 };
+    bool  hasPitch      { false };
+    static constexpr float pitchSmoothing = 0.4f;   // one-pole on detected pitch
+    static constexpr float noteHysteresis = 0.15f;  // dead-zone past the note boundary
 };

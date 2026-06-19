@@ -431,7 +431,9 @@ void LiveDspProcessor::updateVocalFromApvts() noexcept
     const float agg = pVocAutoAmount->load();
     autotune.setEnabled  (pVocAutoOn->load() > 0.5f);
     autotune.setAmount   (agg);
-    autotune.setRetuneMs (juce::jmap (agg, 0.0f, 100.0f, 120.0f, 3.0f));
+    // Glide time: gentler floor (never fully instant) so note transitions are
+    // smooth even at high amount — kinder to an unsteady voice.
+    autotune.setRetuneMs (juce::jmap (agg, 0.0f, 100.0f, 160.0f, 14.0f));
 }
 
 void LiveDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept

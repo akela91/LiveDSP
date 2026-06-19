@@ -54,6 +54,8 @@ GuitarView::GuitarView (LiveDspProcessor& p)
     };
     addAndMakeVisible (tunerButton);
 
+    addAndMakeVisible (coffeeButton);
+
     addChildComponent (tuner);
 
     buildPanels();
@@ -337,6 +339,8 @@ void GuitarView::resized()
     menuButton.setBounds (top.removeFromLeft (72).reduced (0, 2));
     top.removeFromLeft (10);
     titleLabel.setBounds (top.removeFromLeft (120));
+    coffeeButton.setBounds (top.removeFromRight (140).reduced (0, 3));
+    top.removeFromRight (10);
     tunerButton.setBounds (top.removeFromRight (84).reduced (0, 2));
     top.removeFromRight (8);
     presetSelector.setBounds (top.removeFromRight (170).reduced (0, 2));

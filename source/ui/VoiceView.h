@@ -5,6 +5,7 @@
 #include "LiveLookAndFeel.h"
 #include "Panels.h"
 #include "AppView.h"
+#include "SupportButton.h"
 
 /**
     Vocal view: the GuitarDSP-style modular panel row for the vocal signal chain.
@@ -41,6 +42,8 @@ public:
         infoLabel.setText (juce::String::fromUTF8 ("Live vocals — SM58 / Scarlett · brickwall limiter against clipping"),
                            juce::dontSendNotification);
         addAndMakeVisible (infoLabel);
+
+        addAndMakeVisible (coffeeButton);
 
         auto& s = processorRef.apvts;
 
@@ -96,6 +99,8 @@ public:
         menuButton.setBounds (top.removeFromLeft (84).reduced (0, 2));
         top.removeFromLeft (10);
         titleLabel.setBounds (top.removeFromLeft (120));
+        coffeeButton.setBounds (top.removeFromRight (140).reduced (0, 3));
+        top.removeFromRight (10);
         latencyLabel.setBounds (top.removeFromRight (150));
 
         area.removeFromTop (12);
@@ -164,6 +169,7 @@ private:
     juce::TextButton menuButton { juce::String::fromUTF8 ("‹ MENU") };
     juce::Label      latencyLabel;
     juce::Label      infoLabel;
+    CoffeeButton     coffeeButton;
 
     juce::OwnedArray<PanelBase> row1, row2;
     ModulePanel* gatePanel  { nullptr };

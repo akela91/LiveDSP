@@ -43,6 +43,13 @@ namespace livedsp
         return d;
     }
 
+    inline juce::File getUserRecordingsDir()
+    {
+        auto d = baseDir().getChildFile ("recordings");
+        d.createDirectory();
+        return d;
+    }
+
     inline bool dirHasFiles (const juce::File& d, const juce::String& wildcard)
     {
         return d.isDirectory()

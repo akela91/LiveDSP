@@ -65,6 +65,8 @@ public:
         pendingTarget = 0.0f;
         currentSemis  = 0.0f;
         hasPitch      = false;
+        dispMidi.store (-1.0f, std::memory_order_relaxed);
+        dispCorrection.store (0.0f, std::memory_order_relaxed);
     }
 
     void  setEnabled  (bool b)    noexcept { enabled.store (b); }
@@ -76,6 +78,13 @@ public:
         return (enabled.load() && amount.load() > 0.001f) ? granular.getLatencySamples() : 0;
     }
 
+    // Live display state for the UI (audio thread writes, message thread reads).
+    // getDisplayMidi() is the smoothed detected pitch in fractional MIDI notes,
+    // or -1 when no pitch is detected / the effect is off. getDisplayCorrection()
+    // is the correction actually being applied right now, in semitones.
+    float getDisplayMidi()       const noexcept { return dispMidi.load (std::memory_order_relaxed); }
+    float getDisplayCorrection() const noexcept { return dispCorrection.load (std::memory_order_relaxed); }
+
     // Mono, in-place processing.
     void process (float* samples, int numSamples) noexcept
     {
@@ -84,7 +93,11 @@ public:
         pushAnalysis (samples, numSamples);
 
         if (! enabled.load())
+        {
+            dispMidi.store (-1.0f, std::memory_order_relaxed);
+            dispCorrection.store (0.0f, std::memory_order_relaxed);
             return;
+        }
 
         // --- 1) Detect the current pitch (throttled to a fixed hop) ----------
         sinceDetect += numSamples;
@@ -111,10 +124,12 @@ public:
                 else if (smoothedMidi < (float) heldNote - 0.5f - noteHysteresis) heldNote = (int) std::lround (smoothedMidi);
 
                 target = juce::jlimit (-2.0f, 2.0f, (float) heldNote - smoothedMidi) * amount.load();
+                dispMidi.store (smoothedMidi, std::memory_order_relaxed);
             }
             else
             {
                 hasPitch = false;   // unvoiced -> re-lock onto the next sung note
+                dispMidi.store (-1.0f, std::memory_order_relaxed);
             }
             pendingTarget = target;
         }
@@ -129,7 +144,11 @@ public:
         // At AMOUNT 0 the effect is off, so bypass entirely (keeps the voice clean
         // and zero-latency); otherwise correct continuously.
         if (amount.load() <= 0.001f)
+        {
+            dispCorrection.store (0.0f, std::memory_order_relaxed);
             return;
+        }
+        dispCorrection.store (currentSemis, std::memory_order_relaxed);
 
         granular.setSemitones (currentSemis);
         granular.process (samples, numSamples);
@@ -165,6 +184,10 @@ private:
     std::atomic<bool>  enabled  { false };
     std::atomic<float> amount   { 1.0f };    // 0..1 (UI is 0..100 %)
     std::atomic<float> retuneMs { 20.0f };   // glide time toward the target note
+
+    // Display state for the UI readout (written on the audio thread, see getters).
+    std::atomic<float> dispMidi       { -1.0f };  // smoothed detected pitch (MIDI), -1 = none
+    std::atomic<float> dispCorrection { 0.0f };   // applied correction (semitones)
 
     static constexpr float grainMs = 16.0f;  // voice-calibrated grain (~8 ms latency)
 

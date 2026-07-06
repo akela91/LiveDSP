@@ -1,6 +1,8 @@
 # LiveDSP
 
-**A standalone, low-latency Windows audio app for live guitar and vocals — no plugin host or DAW needed.**
+[![Build](https://github.com/akela91/LiveDSP/actions/workflows/build.yml/badge.svg)](https://github.com/akela91/LiveDSP/actions/workflows/build.yml)
+
+**A standalone, low-latency audio app for live guitar and vocals — no plugin host or DAW needed.**
 
 LiveDSP is a real-time monitoring application with **two modules in a single
 `.exe`**: a landing screen at startup lets you pick **GuitarDSP** (a guitar amp /
@@ -23,12 +25,14 @@ visual tuner are shared.
 
 ## Download
 
-> **Windows 64-bit only** — no VC++ Redistributable required (statically linked).
+> **Windows 64-bit** binaries below — no VC++ Redistributable required (statically linked).
+> On **macOS / Linux** the app builds from source (every commit is build-verified on
+> both platforms by CI) — see [Building on macOS / Linux](#building-on-macos--linux-experimental).
 
 | | |
 |---|---|
-| 🟦 **[LiveDSP-Setup-0.2.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.2.0/LiveDSP-Setup-0.2.0.exe)** | **Recommended** — one-click installer, adds a Start Menu shortcut |
-| 📦 **[LiveDSP-Standalone-0.2.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.2.0/LiveDSP-Standalone-0.2.0.exe)** | Portable — just run the `.exe`, nothing installed |
+| 🟦 **[LiveDSP-Setup-0.3.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.3.0/LiveDSP-Setup-0.3.0.exe)** | **Recommended** — one-click installer, adds a Start Menu shortcut |
+| 📦 **[LiveDSP-Standalone-0.3.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.3.0/LiveDSP-Standalone-0.3.0.exe)** | Portable — just run the `.exe`, nothing installed |
 
 All releases: [github.com/akela91/LiveDSP/releases](https://github.com/akela91/LiveDSP/releases)
 
@@ -243,6 +247,61 @@ The standalone application:
 `build/LiveDSP_artefacts/Release/Standalone/LiveDSP.exe`
 
 > Note: the source files are UTF-8; MSVC compiles with the `/utf-8` switch.
+
+### Building on macOS / Linux (experimental)
+
+Every commit is **build-verified on macOS and Linux by CI** (see the badge at
+the top), but the app has not been tested with real audio hardware on these
+platforms (no hardware to test on) — reports welcome. The code uses only
+portable JUCE APIs.
+
+#### macOS
+
+CoreAudio is natively low-latency — no ASIO or extra driver needed:
+
+```sh
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+# -> build/LiveDSP_artefacts/Release/Standalone/LiveDSP.app
+```
+
+Using the app on macOS:
+1. The app is **not code-signed**, so the first launch needs
+   **right-click → Open → Open** (Gatekeeper) instead of a double-click.
+2. On first launch macOS asks for **microphone access** — this covers the whole
+   audio interface input, so you must allow it or the app receives silence.
+3. Pick your interface in **Options**; CoreAudio handles low buffer sizes
+   (32–128 samples) natively.
+4. Models/presets/recordings live in the same Documents layout as on Windows:
+   `~/Documents/LiveDSP/models`, `~/Documents/LiveDSP/favs`,
+   `~/Documents/LiveDSP/recordings` (created on first launch); the in-app
+   **Browse** button works the same way.
+
+#### Linux
+
+Install the JUCE dev packages first:
+
+```sh
+sudo apt install libasound2-dev libfreetype6-dev libfontconfig1-dev \
+    libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
+    libxinerama-dev libxrandr-dev libxrender-dev
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+# -> build/LiveDSP_artefacts/Release/Standalone/LiveDSP
+```
+
+`JUCE_WEB_BROWSER=0` and `JUCE_USE_CURL=0` are already set, so the webkit2gtk
+and curl dev packages are **not** needed.
+
+Using the app on Linux:
+1. The default audio backend is **ALSA**; select your interface and buffer size
+   in **Options**. For the lowest latency install and run **JACK**
+   (`libjack-jackd2-dev` at build time, `jackd`/`qjackctl` at runtime) and pick
+   the JACK device in Options.
+2. Models/presets/recordings live under `~/Documents/LiveDSP/` exactly as on
+   Windows (`models`, `favs`, `recordings` — created on first launch).
+3. USB class-compliant interfaces (e.g. Focusrite Scarlett) work out of the box
+   with the kernel's ALSA driver — no vendor driver needed.
 
 ## Building the installer (distribution)
 

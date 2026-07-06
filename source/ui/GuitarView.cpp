@@ -54,6 +54,17 @@ GuitarView::GuitarView (LiveDspProcessor& p)
     };
     addAndMakeVisible (tunerButton);
 
+    recButton.onClick = [this]
+    {
+        if (processorRef.isRecording())
+            processorRef.stopRecording();
+        else
+            processorRef.startRecording();
+        updateRecButton (processorRef.isRecording());
+    };
+    updateRecButton (processorRef.isRecording());
+    addAndMakeVisible (recButton);
+
     addAndMakeVisible (coffeeButton);
 
     addChildComponent (tuner);
@@ -272,6 +283,18 @@ void GuitarView::syncSelectors()
     sync (cabPanel, irFiles,    processorRef.getCab().isLoaded(), processorRef.getCab().getLoadedName());
 }
 
+void GuitarView::updateRecButton (bool recording)
+{
+    recLit = recording;
+    recButton.setButtonText (recording ? "STOP" : "REC");
+    recButton.setColour (juce::TextButton::buttonColourId,
+                         recording ? juce::Colours::red.darker (0.25f)
+                                   : juce::Colour (LiveLookAndFeel::cPanelHead));
+    recButton.setColour (juce::TextButton::textColourOffId,
+                         recording ? juce::Colours::white
+                                   : juce::Colour (LiveLookAndFeel::cText));
+}
+
 void GuitarView::timerCallback()
 {
     const double sr = processorRef.getSampleRate();
@@ -292,6 +315,11 @@ void GuitarView::timerCallback()
     // Update the INPUT level meter.
     if (inputPanel != nullptr)
         inputPanel->setInputLevel (processorRef.getInputLevel());
+
+    // Keep the REC button visuals in sync if recording was stopped elsewhere
+    // (e.g. by a mode switch).
+    if (processorRef.isRecording() != recLit)
+        updateRecButton (processorRef.isRecording());
 
     // Keep the UI in sync if the model/IR changed outside the combos (e.g. the
     // standalone "Load state" menu, or restoring a preset).
@@ -342,6 +370,8 @@ void GuitarView::resized()
     coffeeButton.setBounds (top.removeFromRight (140).reduced (0, 3));
     top.removeFromRight (10);
     tunerButton.setBounds (top.removeFromRight (84).reduced (0, 2));
+    top.removeFromRight (8);
+    recButton.setBounds (top.removeFromRight (64).reduced (0, 2));
     top.removeFromRight (8);
     presetSelector.setBounds (top.removeFromRight (170).reduced (0, 2));
 

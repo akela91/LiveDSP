@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(LiveDSP VERSION 0.2.0 LANGUAGES C CXX)
+project(LiveDSP VERSION 0.3.0 LANGUAGES C CXX)
 
 # ---------------------------------------------------------------------------
 # Global settings
@@ -79,22 +79,26 @@ endif()
 # ---------------------------------------------------------------------------
 # ASIO SDK (Steinberg) — bundled in the repo under its GPLv3 variant
 # ---------------------------------------------------------------------------
+# ASIO is a Windows-only driver model, so the whole detection is gated on
+# WIN32; macOS uses CoreAudio and Linux uses ALSA/JACK natively via JUCE.
 # The Steinberg ASIO SDK is GPLv3-licensed (open-source variant) and lives in
 # ext/ASIOSDK/, so no manual download is needed. To point at a different SDK:
 #   cmake -B build -DLIVEDSP_ASIO_SDK_DIR="C:/SDKs/asiosdk"
-set(LIVEDSP_ASIO_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext/ASIOSDK"
-    CACHE PATH "Steinberg ASIO SDK root directory (must contain the 'common' subfolder)")
-
 set(LIVEDSP_HAS_ASIO FALSE)
-if (EXISTS "${LIVEDSP_ASIO_SDK_DIR}/common/iasiodrv.h")
-    set(LIVEDSP_HAS_ASIO TRUE)
-    message(STATUS "LiveDSP: ASIO SDK found at: ${LIVEDSP_ASIO_SDK_DIR}")
-else()
-    message(WARNING
-        "LiveDSP: ASIO SDK NOT found (${LIVEDSP_ASIO_SDK_DIR}).\n"
-        "  The build continues WITHOUT ASIO (WASAPI/DirectSound fallback).\n"
-        "  For low-latency ASIO, point LIVEDSP_ASIO_SDK_DIR at a Steinberg ASIO SDK:\n"
-        "  cmake -B build -DLIVEDSP_ASIO_SDK_DIR=\"C:/path/asiosdk\"")
+if (WIN32)
+    set(LIVEDSP_ASIO_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext/ASIOSDK"
+        CACHE PATH "Steinberg ASIO SDK root directory (must contain the 'common' subfolder)")
+
+    if (EXISTS "${LIVEDSP_ASIO_SDK_DIR}/common/iasiodrv.h")
+        set(LIVEDSP_HAS_ASIO TRUE)
+        message(STATUS "LiveDSP: ASIO SDK found at: ${LIVEDSP_ASIO_SDK_DIR}")
+    else()
+        message(WARNING
+            "LiveDSP: ASIO SDK NOT found (${LIVEDSP_ASIO_SDK_DIR}).\n"
+            "  The build continues WITHOUT ASIO (WASAPI/DirectSound fallback).\n"
+            "  For low-latency ASIO, point LIVEDSP_ASIO_SDK_DIR at a Steinberg ASIO SDK:\n"
+            "  cmake -B build -DLIVEDSP_ASIO_SDK_DIR=\"C:/path/asiosdk\"")
+    endif()
 endif()
 
 # ---------------------------------------------------------------------------
@@ -113,7 +117,11 @@ juce_add_plugin(LiveDSP
     NEEDS_MIDI_OUTPUT       FALSE
     IS_MIDI_EFFECT          FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    COPY_PLUGIN_AFTER_BUILD FALSE)
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    # macOS: the standalone must request microphone access, otherwise CoreAudio
+    # delivers silence. Ignored on other platforms.
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "LiveDSP needs access to your audio interface / microphone to process live audio.")
 
 juce_generate_juce_header(LiveDSP)
 

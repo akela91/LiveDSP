@@ -43,6 +43,17 @@ public:
                            juce::dontSendNotification);
         addAndMakeVisible (infoLabel);
 
+        recButton.onClick = [this]
+        {
+            if (processorRef.isRecording())
+                processorRef.stopRecording();
+            else
+                processorRef.startRecording();
+            updateRecButton (processorRef.isRecording());
+        };
+        updateRecButton (processorRef.isRecording());
+        addAndMakeVisible (recButton);
+
         addAndMakeVisible (coffeeButton);
 
         auto& s = processorRef.apvts;
@@ -66,7 +77,8 @@ public:
         row1.add (compPanel);
 
         // Row 2 — autotune, air, delay, reverb, limiter.
-        row2.add (new AutotunePanel (s));
+        autotunePanel = new AutotunePanel (s);
+        row2.add (autotunePanel);
         row2.add (new ModulePanel (s, "AIR", "vocAirOn", { { "vocAir", "AIR" } }));
         row2.add (new ModulePanel (s, "DELAY", "vocDelayOn",
                                    { { "vocDelayTime", "TIME" }, { "vocDelayMix", "MIX" } }));
@@ -101,6 +113,8 @@ public:
         titleLabel.setBounds (top.removeFromLeft (120));
         coffeeButton.setBounds (top.removeFromRight (140).reduced (0, 3));
         top.removeFromRight (10);
+        recButton.setBounds (top.removeFromRight (64).reduced (0, 2));
+        top.removeFromRight (8);
         latencyLabel.setBounds (top.removeFromRight (150));
 
         area.removeFromTop (12);
@@ -139,6 +153,19 @@ private:
         }
     }
 
+    // REC button visuals (red while recording).
+    void updateRecButton (bool recording)
+    {
+        recLit = recording;
+        recButton.setButtonText (recording ? "STOP" : "REC");
+        recButton.setColour (juce::TextButton::buttonColourId,
+                             recording ? juce::Colours::red.darker (0.25f)
+                                       : juce::Colour (LiveLookAndFeel::cPanelHead));
+        recButton.setColour (juce::TextButton::textColourOffId,
+                             recording ? juce::Colours::white
+                                       : juce::Colour (LiveLookAndFeel::cText));
+    }
+
     void timerCallback() override
     {
         const double sr = processorRef.getSampleRate();
@@ -161,20 +188,37 @@ private:
         // INPUT level meter.
         if (inputPanel != nullptr)
             inputPanel->setInputLevel (processorRef.getInputLevel());
+
+        // Autotune readout: detected note + applied correction. getDisplayMidi()
+        // is -1 when the effect is off or no pitch is held, so the panel shows a
+        // dash in those cases without extra state checks here.
+        if (autotunePanel != nullptr)
+        {
+            auto& at = processorRef.getAutotune();
+            autotunePanel->setPitchReadout (at.getDisplayMidi(), at.getDisplayCorrection());
+        }
+
+        // Keep the REC button visuals in sync if recording was stopped elsewhere
+        // (e.g. by a mode switch).
+        if (processorRef.isRecording() != recLit)
+            updateRecButton (processorRef.isRecording());
     }
 
     LiveDspProcessor& processorRef;
 
     juce::Label      titleLabel;
     juce::TextButton menuButton { juce::String::fromUTF8 ("‹ MENU") };
+    juce::TextButton recButton  { "REC" };
     juce::Label      latencyLabel;
     juce::Label      infoLabel;
     CoffeeButton     coffeeButton;
+    bool             recLit { false };   // cached REC state, so the timer only repaints on change
 
     juce::OwnedArray<PanelBase> row1, row2;
-    ModulePanel* gatePanel  { nullptr };
-    ModulePanel* compPanel  { nullptr };
-    InputPanel*  inputPanel { nullptr };
+    ModulePanel*   gatePanel     { nullptr };
+    ModulePanel*   compPanel     { nullptr };
+    InputPanel*    inputPanel    { nullptr };
+    AutotunePanel* autotunePanel { nullptr };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VoiceView)
 };

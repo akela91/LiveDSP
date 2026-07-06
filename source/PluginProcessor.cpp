@@ -403,6 +403,9 @@ void LiveDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexcept
     // 9) Output Gain
     for (int ch = 0; ch < numOut; ++ch)
         outputGain.applyGain (buffer.getWritePointer (ch), numSamples);
+
+    // 10) Recording tap: the fully processed output (no-op when not recording).
+    recorder.write (buffer.getArrayOfReadPointers(), numSamples);
 }
 
 //==============================================================================
@@ -465,6 +468,22 @@ void LiveDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
     // Full vocals chain on a stereo block (Gain -> LowCut -> Comp -> Air -> Reverb -> Limiter).
     juce::dsp::AudioBlock<float> block (buffer);
     vocal.process (block);
+
+    // Recording tap: the fully processed output (no-op when not recording).
+    recorder.write (buffer.getArrayOfReadPointers(), numSamples);
+}
+
+//==============================================================================
+bool LiveDspProcessor::startRecording()
+{
+    // Timestamped file in the user-writable recordings folder, e.g.
+    // <Documents>/LiveDSP/recordings/LiveDSP_2026-07-06_18-30-05.wav
+    const auto file = livedsp::getUserRecordingsDir()
+                          .getChildFile ("LiveDSP_"
+                                         + juce::Time::getCurrentTime().formatted ("%Y-%m-%d_%H-%M-%S")
+                                         + ".wav");
+
+    return recorder.startRecording (file, currentSampleRate, 2);
 }
 
 //==============================================================================

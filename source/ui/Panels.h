@@ -624,7 +624,9 @@ private:
 //==============================================================================
 /** AUTOTUNE panel (vocals): power + a single AMOUNT knob. Autotune always snaps
     to the nearest note; AMOUNT is just "how aggressively it intervenes". The knob
-    is sized/laid out exactly like the GATE panel's knob. */
+    is sized/laid out exactly like the GATE panel's knob. Below the knob a live
+    readout shows the detected note and the applied correction in cents
+    (fed by the view's timer via setPitchReadout()). */
 class AutotunePanel : public PanelBase
 {
 public:
@@ -635,6 +637,33 @@ public:
 
         amount = std::make_unique<KnobControl> (state, "vocAutotuneAmount", "AMOUNT");
         addAndMakeVisible (*amount);
+    }
+
+    /** Live readout: detected pitch (fractional MIDI note, -1 = no pitch / off)
+        + the applied correction in semitones. Call from the message thread;
+        repaints only when the displayed text actually changes. */
+    void setPitchReadout (float midi, float correctionSemis)
+    {
+        juce::String text;
+        if (midi >= 0.0f)
+        {
+            static const char* names[] = { "C", "C#", "D", "D#", "E", "F",
+                                           "F#", "G", "G#", "A", "A#", "B" };
+            const int note  = juce::roundToInt (midi);
+            const int cents = juce::roundToInt (correctionSemis * 100.0f);
+            text = juce::String (names[note % 12]) + juce::String (note / 12 - 1)
+                   + "  " + (cents > 0 ? "+" : "") + juce::String (cents) + "c";
+        }
+        else
+        {
+            text = juce::String::fromUTF8 ("\xe2\x80\x93");   // en dash: no pitch
+        }
+
+        if (text != readoutText)
+        {
+            readoutText = std::move (text);
+            repaint (readoutArea);
+        }
     }
 
     int getPreferredWidth() const override { return 120; }
@@ -654,6 +683,11 @@ public:
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         g.drawText ("AUTOTUNE", header.toNearestInt().reduced (10, 0).withTrimmedRight (24),
                     juce::Justification::centredLeft);
+
+        // Live pitch readout (note + applied correction) under the AMOUNT knob.
+        g.setColour (juce::Colour (LiveLookAndFeel::cTextDim));
+        g.setFont (juce::Font (juce::FontOptions (11.0f)));
+        g.drawText (readoutText, readoutArea, juce::Justification::centred);
     }
 
     void resized() override
@@ -663,6 +697,7 @@ public:
         power->setBounds (header.removeFromRight (24).reduced (4));
 
         r.reduce (8, 6);
+        readoutArea = r.removeFromBottom (16);
         const int kh = juce::jmin (r.getHeight(), 108);
         amount->setBounds (r.withSizeKeepingCentre (juce::jmin (r.getWidth(), 66), kh));
     }
@@ -670,6 +705,9 @@ public:
 private:
     std::unique_ptr<PowerButton> power;
     std::unique_ptr<KnobControl> amount;
+
+    juce::String readoutText { juce::String::fromUTF8 ("\xe2\x80\x93") };
+    juce::Rectangle<int> readoutArea;
 };
 
 //==============================================================================

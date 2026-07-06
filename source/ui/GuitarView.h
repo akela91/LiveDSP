@@ -39,6 +39,7 @@ private:
     void populatePresetSelector();
     void updateStatusLabel();
     void syncSelectors();   // keep the AMP/RIG + CAB combos in sync with the loaded model/IR
+    void updateRecButton (bool recording);   // REC button visuals (red while recording)
     void layoutRow (juce::Rectangle<int> area, juce::OwnedArray<PanelBase>& panels);
     void timerCallback() override;
 
@@ -49,6 +50,7 @@ private:
     juce::Label      statusLabel;
     juce::Label      latencyLabel;
     juce::TextButton tunerButton { "TUNER" };
+    juce::TextButton recButton   { "REC" };
     juce::TextButton menuButton  { juce::String::fromUTF8 ("‹ MENU") };
     CoffeeButton     coffeeButton;
     TunerComponent   tuner;
@@ -65,6 +67,7 @@ private:
     juce::Array<juce::File> irFiles;
     juce::Array<juce::File> presetFiles;
     bool tunerVisible { false };
+    bool recLit       { false };   // cached REC state, so the timer only repaints on change
 
     static constexpr int baseW = 960;
     static constexpr int baseH = 470;

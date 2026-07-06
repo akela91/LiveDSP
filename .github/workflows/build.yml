@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: Windows }
+          - { os: ubuntu-latest,  name: Linux }
+          - { os: macos-latest,   name: macOS }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libfreetype6-dev libfontconfig1-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
+            libxinerama-dev libxrandr-dev libxrender-dev
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DLIVEDSP_BUILD_INSTALLER=OFF
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Upload standalone artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiveDSP-${{ matrix.name }}
+          path: |
+            build/LiveDSP_artefacts/Release/Standalone/LiveDSP.exe
+            build/LiveDSP_artefacts/Release/Standalone/LiveDSP
+            build/LiveDSP_artefacts/Release/Standalone/LiveDSP.app
+          if-no-files-found: error

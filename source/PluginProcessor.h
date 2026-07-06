@@ -10,6 +10,7 @@
 #include "dsp/Equalizer.h"
 #include "dsp/VoiceChain.h"
 #include "dsp/Autotune.h"
+#include "dsp/Recorder.h"
 
 /**
     GuitarDSP — dual-mode standalone audio app: GUITAR amp simulator + VOCALS
@@ -61,6 +62,7 @@ public:
     NamProcessor& getNam()       { return nam; }
     CabConvolver& getCab()       { return cab; }
     NoiseGate&    getGate()      { return gate; }
+    Autotune&     getAutotune() noexcept { return autotune; }
 
     // Vocals display meters for the UI LEDs (0..1).
     float getVocalGateGain()      const noexcept { return vocal.getGateGain(); }
@@ -79,7 +81,20 @@ public:
     // persisted in the state — the Landing screen comes up on every startup.
     enum class AppMode { none = 0, guitar = 1, vocal = 2 };
     int  getAppMode() const noexcept { return appMode.load(); }
-    void setAppMode (int m) noexcept { appMode.store (m); }
+    void setAppMode (int m) noexcept
+    {
+        // Leaving a mode ends its recording (message thread).
+        if (m != appMode.load())
+            stopRecording();
+        appMode.store (m);
+    }
+
+    //==============================================================================
+    // Output recording (message thread). Records the processed output of the
+    // active chain to a timestamped WAV in <Documents>/LiveDSP/recordings.
+    bool startRecording();
+    void stopRecording() { recorder.stopRecording(); }
+    bool isRecording() const noexcept { return recorder.isRecording(); }
 
     //==============================================================================
     // Input channel selection PER MODE separately (which of the Scarlett's
@@ -125,6 +140,9 @@ private:
     // DSP modules — vocals signal chain
     Autotune      autotune;   // runs (mono) before the VoiceChain
     VoiceChain    vocal;
+
+    // Output recorder (shared by both modes; captures the processed output).
+    Recorder      recorder;
 
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLine { 96000 };
     juce::dsp::Reverb reverb;

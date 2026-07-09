@@ -164,9 +164,12 @@ public:
     enum class Icon { none, amp, cab };
     struct Knob { juce::String id, label; };
 
+    // minWidthPx: optional floor for the preferred width (long titles, e.g.
+    // "DIABOLIC/MICKEY", need more header room than the knob count implies).
     ModulePanel (APVTS& state, juce::String titleText,
-                 juce::String toggleId, std::vector<Knob> knobDefs)
-        : title (std::move (titleText))
+                 juce::String toggleId, std::vector<Knob> knobDefs,
+                 int minWidthPx = 0)
+        : title (std::move (titleText)), minWidth (minWidthPx)
     {
         if (toggleId.isNotEmpty())
         {
@@ -195,8 +198,8 @@ public:
     int getPreferredWidth() const override
     {
         if (icon != Icon::none && knobs.isEmpty())
-            return 120;
-        return juce::jmax (90, 18 + knobs.size() * knobWidth);
+            return juce::jmax (minWidth, 120);
+        return juce::jmax (minWidth, 90, 18 + knobs.size() * knobWidth);
     }
 
     void paint (juce::Graphics& g) override
@@ -303,6 +306,7 @@ private:
 
     juce::String title;
     Icon icon { Icon::none };
+    int   minWidth { 0 };
     bool  hasLed  { false };
     float ledLit  { 0.0f };
     std::unique_ptr<PowerButton> power;

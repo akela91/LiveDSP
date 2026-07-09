@@ -31,8 +31,8 @@ visual tuner are shared.
 
 | | |
 |---|---|
-| 🟦 **[LiveDSP-Setup-0.3.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.3.0/LiveDSP-Setup-0.3.0.exe)** | **Recommended** — one-click installer, adds a Start Menu shortcut |
-| 📦 **[LiveDSP-Standalone-0.3.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.3.0/LiveDSP-Standalone-0.3.0.exe)** | Portable — just run the `.exe`, nothing installed |
+| 🟦 **[LiveDSP-Setup-0.4.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.4.0/LiveDSP-Setup-0.4.0.exe)** | **Recommended** — one-click installer, adds a Start Menu shortcut |
+| 📦 **[LiveDSP-Standalone-0.4.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.4.0/LiveDSP-Standalone-0.4.0.exe)** | Portable — just run the `.exe`, nothing installed |
 
 All releases: [github.com/akela91/LiveDSP/releases](https://github.com/akela91/LiveDSP/releases)
 
@@ -123,16 +123,18 @@ tunings want a slightly larger grain.
   <img src="resources/LiveDSP_VoiceDSP.png" alt="VoiceDSP module" width="820">
 </p>
 
-An optional **Autotune** stage runs first (on the mono signal), followed by the
-`juce::dsp::ProcessorChain`, strictly in this order:
+Optional **Autotune** and **Diabolic/Mickey** stages run first (on the mono
+signal), followed by the `juce::dsp::ProcessorChain`, strictly in this order:
 ```
-In → [Autotune] → Input Gain → Low-Cut (90 Hz) → Noise Gate → Warmth (tanh)
-   → Compressor → High-Shelf "Air" (6 kHz) → Delay → Reverb → Brickwall Limiter → Out
+In → [Autotune] → [Diabolic/Mickey] → Input Gain → Low-Cut (90 Hz) → Noise Gate
+   → Warmth (tanh) → Compressor → High-Shelf "Air" (6 kHz)
+   → Delay → Reverb → Brickwall Limiter → Out
 ```
 The GATE and COMP panels get an activity LED (lit while ducking / compressing).
 | Module | Control | Fixed setting |
 |---|---|---|
 | Autotune | AMOUNT 0…100% | snaps to nearest note; custom granular shifter (~8 ms) |
+| Diabolic/Mickey | OCT −1…+1 octave | granular shifter, no formant preservation (FX voice) |
 | Input Gain | GAIN 0…+24 dB | — |
 | Low-Cut | — | 90 Hz high-pass |
 | Noise Gate | GATE −80…−20 dB | ratio 10:1, attack 2 ms, release 150 ms |
@@ -150,8 +152,13 @@ single **AMOUNT** knob sets how aggressively it intervenes — it scales both ho
 far the note is pulled and how fast it snaps (0 % = off, 100 % = full, ~instant
 "robotic" correction).
 
-The vocal chain itself is **zero-latency** (Autotune adds latency only while it
-is switched on). All settings (every vocal parameter) are persisted in the state.
+**Diabolic/Mickey** is a deliberately fun FX voice: the same low-latency
+granular shifter as the guitar Transpose, *without* formant preservation —
+−1 octave is a deep "diabolic" voice and +1 octave is Mickey Mouse.
+
+The vocal chain itself is **zero-latency** (Autotune and Diabolic/Mickey add
+latency only while switched on — shown live on the latency display). All
+settings (every vocal parameter) are persisted in the state.
 COMP/AIR/REVERB and GATE/WARMTH/DELAY can each be toggled on/off.
 
 ## Models / rigs (NAM) and IRs
@@ -216,8 +223,8 @@ CMake `FetchContent` downloads automatically:
 - **JUCE 8.0.4** (GPLv3 option)
 - **NeuralAmpModelerCore** (+ Eigen, nlohmann/json)
 
-Pitch shifting (guitar Transpose and vocal Autotune) uses our own header-only
-granular shifter — no external pitch-shifting library.
+Pitch shifting (guitar Transpose, vocal Autotune and Diabolic/Mickey) uses our
+own header-only granular shifter — no external pitch-shifting library.
 
 Bundled in the repo:
 - **Steinberg ASIO SDK** (`ext/ASIOSDK/`, **GPLv3** variant) — no manual download

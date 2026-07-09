@@ -12,8 +12,9 @@
     Top bar: title + "menu" button (back to the Landing screen) + latency display.
 
     Panels (in signal chain order):
-      INPUT (Gain) · LOW CUT (90 Hz, fixed) · COMP (thresh/ratio) ·
-      AIR (6 kHz shelf) · REVERB (mix) · LIMITER (-0.1 dB, fixed)
+      INPUT (Gain) · LOW CUT (90 Hz, fixed) · GATE · WARMTH · COMP ·
+      AUTOTUNE · DIABOLIC/MICKEY (granular FX, -1..+1 oct) ·
+      AIR (6 kHz shelf) · DELAY · REVERB (mix) · LIMITER (-0.1 dB, fixed)
 */
 class VoiceView : public AppView,
                   private juce::Timer
@@ -76,9 +77,11 @@ public:
         compPanel->enableLed (true);
         row1.add (compPanel);
 
-        // Row 2 — autotune, air, delay, reverb, limiter.
+        // Row 2 — autotune, diabolic/mickey, air, delay, reverb, limiter.
         autotunePanel = new AutotunePanel (s);
         row2.add (autotunePanel);
+        row2.add (new ModulePanel (s, "DIABOLIC/MICKEY", "vocMickeyOn",
+                                   { { "vocMickeyOct", "OCT" } }, 148));
         row2.add (new ModulePanel (s, "AIR", "vocAirOn", { { "vocAir", "AIR" } }));
         row2.add (new ModulePanel (s, "DELAY", "vocDelayOn",
                                    { { "vocDelayTime", "TIME" }, { "vocDelayMix", "MIX" } }));
@@ -93,7 +96,7 @@ public:
 
     ~VoiceView() override { stopTimer(); }
 
-    int defaultWidth()  const override { return 900; }
+    int defaultWidth()  const override { return 960; }
     int defaultHeight() const override { return 440; }
 
     void paint (juce::Graphics& g) override

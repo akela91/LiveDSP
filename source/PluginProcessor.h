@@ -22,7 +22,8 @@
          -> (mono->stereo) -> [Cab IR] -> [EQ] -> [Delay] -> [Reverb] -> [OutputGain] -> Out
 
     Vocals signal chain (mono microphone -> stereo, VoiceChain ProcessorChain):
-      In -> [Gain] -> [LowCut 90Hz] -> [Comp] -> [Air 6kHz] -> [Reverb] -> [Limiter] -> Out
+      In -> [Autotune] -> [Diabolic/Mickey] -> [Gain] -> [LowCut 90Hz] -> [Gate]
+         -> [Warmth] -> [Comp] -> [Air 6kHz] -> [Delay] -> [Reverb] -> [Limiter] -> Out
 */
 class LiveDspProcessor  : public juce::AudioProcessor
 {
@@ -138,7 +139,8 @@ private:
     Equalizer     eq;
 
     // DSP modules — vocals signal chain
-    Autotune      autotune;   // runs (mono) before the VoiceChain
+    Autotune      autotune;     // runs (mono) before the VoiceChain
+    PitchShifter  vocalMickey;  // "Diabolic/Mickey": granular +/-1 octave FX
     VoiceChain    vocal;
 
     // Output recorder (shared by both modes; captures the processed output).
@@ -211,6 +213,8 @@ private:
     std::atomic<float>* pVocReverbMix  { nullptr };
     std::atomic<float>* pVocAutoOn     { nullptr };
     std::atomic<float>* pVocAutoAmount { nullptr };
+    std::atomic<float>* pVocMickeyOn   { nullptr };
+    std::atomic<float>* pVocMickeyOct  { nullptr };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LiveDspProcessor)
 };

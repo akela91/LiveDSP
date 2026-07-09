@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(LiveDSP VERSION 0.3.0 LANGUAGES C CXX)
+project(LiveDSP VERSION 0.4.0 LANGUAGES C CXX)
 
 # ---------------------------------------------------------------------------
 # Global settings
@@ -37,8 +37,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
-# (Pitch shifting — both the guitar Transpose and the vocal Autotune — runs on
-#  our own header-only GranularPitchShifter, so no external shifter library.)
+# (Pitch shifting — the guitar Transpose, the vocal Autotune and the vocal
+#  "Diabolic/Mickey" effect — runs on our own header-only GranularPitchShifter,
+#  so no external shifter library.)
 
 # --- Neural Amp Modeler Core (MIT) ----------------------------------------
 # Its own CMakeLists only builds the 'tools' utilities (with GCC/Clang flags

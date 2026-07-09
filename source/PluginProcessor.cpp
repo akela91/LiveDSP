@@ -51,6 +51,8 @@ LiveDspProcessor::LiveDspProcessor()
     pVocReverbMix  = apvts.getRawParameterValue ("vocReverbMix");
     pVocAutoOn     = apvts.getRawParameterValue ("vocAutotuneOn");
     pVocAutoAmount = apvts.getRawParameterValue ("vocAutotuneAmount");
+    pVocMickeyOn   = apvts.getRawParameterValue ("vocMickeyOn");
+    pVocMickeyOct  = apvts.getRawParameterValue ("vocMickeyOct");
 
     // Development convenience: load the first NAM model and IR from the default
     // models/ folder ALREADY in the constructor (before the editor), so that the
@@ -197,6 +199,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout LiveDspProcessor::createPara
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocAutotuneAmount", 1 },
         "Vocal Autotune Amount", NormalisableRange<float> { 0.0f, 100.0f, 1.0f }, 75.0f));
 
+    // "Diabolic/Mickey" (vocals): the low-latency granular shifter WITHOUT formant
+    // preservation, +/-1 octave — deliberately a fun FX voice (deep "diabolic"
+    // down / "Mickey Mouse" up).
+    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "vocMickeyOn", 1 }, "Diabolic/Mickey On", false));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "vocMickeyOct", 1 },
+        "Diabolic/Mickey", NormalisableRange<float> { -1.0f, 1.0f, 1.0f }, 0.0f));
+
     return layout;
 }
 
@@ -220,6 +229,10 @@ void LiveDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     // Autotune runs on the mono microphone signal; the vocals chain works on a
     // stereo block (mono microphone copied onto both channels).
     autotune.prepare (monoSpec);
+    vocalMickey.prepare (monoSpec);
+    // Fixed grain for Diabolic/Mickey: 24 ms (~12 ms latency) keeps the octave
+    // jump smooth; there is no GRAIN knob on the vocal panel.
+    vocalMickey.setGrainMs (24.0f);
     vocal.prepare (stereoSpec);
 
     // Max delay length aligned to the actual sample rate (max parameter 1500 ms + headroom).
@@ -437,6 +450,10 @@ void LiveDspProcessor::updateVocalFromApvts() noexcept
     // Glide time: gentler floor (never fully instant) so note transitions are
     // smooth even at high amount — kinder to an unsteady voice.
     autotune.setRetuneMs (juce::jmap (agg, 0.0f, 100.0f, 160.0f, 14.0f));
+
+    // Diabolic/Mickey (granular FX): bypasses itself at 0 octaves (zero latency).
+    vocalMickey.setEnabled   (pVocMickeyOn->load() > 0.5f);
+    vocalMickey.setSemitones (pVocMickeyOct->load() * 12.0f);
 }
 
 void LiveDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
@@ -461,6 +478,10 @@ void LiveDspProcessor::processVocal (juce::AudioBuffer<float>& buffer) noexcept
 
     // Autotune (low-latency pitch correction) on the mono signal, before the chain.
     autotune.process (mono, numSamples);
+
+    // Diabolic/Mickey after the correction (so the Autotune's pitch detection
+    // sees the raw mic signal).
+    vocalMickey.process (mono, numSamples);
 
     for (int ch = 0; ch < numOut; ++ch)
         buffer.copyFrom (ch, 0, mono, numSamples);
@@ -489,10 +510,16 @@ bool LiveDspProcessor::startRecording()
 //==============================================================================
 int LiveDspProcessor::getEffectiveLatencySamples() const noexcept
 {
-    // Vocals: the chain itself is zero-latency (IIR/comp/reverb/limiter); only
-    // Autotune adds latency, and only while it is switched on.
+    // Vocals: the chain itself is zero-latency (IIR/comp/reverb/limiter); the
+    // Autotune and Diabolic/Mickey add latency only while active.
     if ((AppMode) appMode.load() == AppMode::vocal)
-        return autotune.getLatencySamples();
+    {
+        int v = autotune.getLatencySamples();
+        if (pVocMickeyOn != nullptr && pVocMickeyOn->load() > 0.5f
+            && pVocMickeyOct != nullptr && pVocMickeyOct->load() != 0.0f)
+            v += vocalMickey.getLatencySamples();
+        return v;
+    }
 
     if ((AppMode) appMode.load() != AppMode::guitar)
         return 0;

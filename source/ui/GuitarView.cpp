@@ -3,7 +3,8 @@
 
 GuitarView::GuitarView (LiveDspProcessor& p)
     : processorRef (p),
-      tuner (p)
+      tuner (p),
+      metro (p)
 {
     titleLabel.setText ("GuitarDSP", juce::dontSendNotification);
     titleLabel.setFont (juce::Font (juce::FontOptions (19.0f, juce::Font::bold)));
@@ -48,11 +49,22 @@ GuitarView::GuitarView (LiveDspProcessor& p)
     tunerButton.onClick = [this]
     {
         tunerVisible = tunerButton.getToggleState();
-        tuner.setVisible (tunerVisible);
-        if (onRequestSize)
-            onRequestSize (baseW, baseH + (tunerVisible ? tunerH : 0));
+        if (tunerVisible) metroButton.setToggleState (false, juce::dontSendNotification);
+        updateTopPanels();
     };
     addAndMakeVisible (tunerButton);
+
+    metroButton.setClickingTogglesState (true);
+    metroButton.setColour (juce::TextButton::buttonColourId,   juce::Colour (LiveLookAndFeel::cPanelHead));
+    metroButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (LiveLookAndFeel::cAccent));
+    metroButton.setColour (juce::TextButton::textColourOffId,  juce::Colour (LiveLookAndFeel::cText));
+    metroButton.setColour (juce::TextButton::textColourOnId,   juce::Colours::black);
+    metroButton.onClick = [this]
+    {
+        if (metroButton.getToggleState()) tunerButton.setToggleState (false, juce::dontSendNotification);
+        updateTopPanels();
+    };
+    addAndMakeVisible (metroButton);
 
     recButton.onClick = [this]
     {
@@ -68,6 +80,7 @@ GuitarView::GuitarView (LiveDspProcessor& p)
     addAndMakeVisible (coffeeButton);
 
     addChildComponent (tuner);
+    addChildComponent (metro);
 
     buildPanels();
     populateAmpModels();
@@ -283,6 +296,17 @@ void GuitarView::syncSelectors()
     sync (cabPanel, irFiles,    processorRef.getCab().isLoaded(), processorRef.getCab().getLoadedName());
 }
 
+void GuitarView::updateTopPanels()
+{
+    tunerVisible = tunerButton.getToggleState();
+    metroVisible = metroButton.getToggleState();
+    tuner.setVisible (tunerVisible);
+    metro.setVisible (metroVisible);
+    if (onRequestSize)
+        onRequestSize (baseW, baseH + (tunerVisible ? tunerH : 0)
+                                    + (metroVisible ? metroH : 0));
+}
+
 void GuitarView::updateRecButton (bool recording)
 {
     recLit = recording;
@@ -369,11 +393,13 @@ void GuitarView::resized()
     titleLabel.setBounds (top.removeFromLeft (120));
     coffeeButton.setBounds (top.removeFromRight (140).reduced (0, 3));
     top.removeFromRight (10);
-    tunerButton.setBounds (top.removeFromRight (84).reduced (0, 2));
+    tunerButton.setBounds (top.removeFromRight (76).reduced (0, 2));
     top.removeFromRight (8);
-    recButton.setBounds (top.removeFromRight (64).reduced (0, 2));
+    metroButton.setBounds (top.removeFromRight (76).reduced (0, 2));
     top.removeFromRight (8);
-    presetSelector.setBounds (top.removeFromRight (170).reduced (0, 2));
+    recButton.setBounds (top.removeFromRight (60).reduced (0, 2));
+    top.removeFromRight (8);
+    presetSelector.setBounds (top.removeFromRight (164).reduced (0, 2));
 
     area.removeFromTop (12);
 
@@ -385,6 +411,11 @@ void GuitarView::resized()
     if (tunerVisible)
     {
         tuner.setBounds (area.removeFromTop (tunerH - 8));
+        area.removeFromTop (8);
+    }
+    if (metroVisible)
+    {
+        metro.setBounds (area.removeFromTop (metroH - 8));
         area.removeFromTop (8);
     }
 

@@ -11,6 +11,7 @@
 #include "dsp/VoiceChain.h"
 #include "dsp/Autotune.h"
 #include "dsp/Recorder.h"
+#include "dsp/Metronome.h"
 
 /**
     GuitarDSP — dual-mode standalone audio app: GUITAR amp simulator + VOCALS
@@ -64,6 +65,12 @@ public:
     CabConvolver& getCab()       { return cab; }
     NoiseGate&    getGate()      { return gate; }
     Autotune&     getAutotune() noexcept { return autotune; }
+
+    // Metronome (guitar mode): transport + display state for the UI. The play
+    // state is NOT persisted — the metronome always starts stopped.
+    Metronome& getMetronome() noexcept { return metronome; }
+    void setMetronomePlaying (bool b) noexcept { metronome.setPlaying (b); }
+    bool isMetronomePlaying() const noexcept   { return metronome.isPlaying(); }
 
     // Vocals display meters for the UI LEDs (0..1).
     float getVocalGateGain()      const noexcept { return vocal.getGateGain(); }
@@ -146,6 +153,9 @@ private:
     // Output recorder (shared by both modes; captures the processed output).
     Recorder      recorder;
 
+    // Practice metronome (guitar mode only; mixed into the processed output).
+    Metronome     metronome;
+
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLine { 96000 };
     juce::dsp::Reverb reverb;
     juce::dsp::Reverb::Parameters reverbParams;
@@ -194,6 +204,20 @@ private:
     std::atomic<float>* pReverbAmt   { nullptr };
     std::atomic<float>* pEqOn        { nullptr };
     std::array<std::atomic<float>*, Equalizer::numBands> pEqBands { };
+
+    // Metronome parameter pointers
+    std::atomic<float>* pMetBpm         { nullptr };
+    std::atomic<float>* pMetBeats       { nullptr };
+    std::atomic<float>* pMetSubdiv      { nullptr };
+    std::atomic<float>* pMetSound       { nullptr };
+    std::atomic<float>* pMetVolume      { nullptr };
+    std::atomic<float>* pMetAccent      { nullptr };
+    std::atomic<float>* pMetTrainerOn   { nullptr };
+    std::atomic<float>* pMetTrainerInc  { nullptr };
+    std::atomic<float>* pMetTrainerBars { nullptr };
+    std::atomic<float>* pMetGapOn       { nullptr };
+    std::atomic<float>* pMetGapPlay     { nullptr };
+    std::atomic<float>* pMetGapMute     { nullptr };
 
     // Vocals parameter pointers
     std::atomic<float>* pVocGain       { nullptr };

@@ -34,6 +34,19 @@ LiveDspProcessor::LiveDspProcessor()
     for (int i = 0; i < Equalizer::numBands; ++i)
         pEqBands[(size_t) i] = apvts.getRawParameterValue ("eqBand" + juce::String (i));
 
+    pMetBpm         = apvts.getRawParameterValue ("metBpm");
+    pMetBeats       = apvts.getRawParameterValue ("metBeats");
+    pMetSubdiv      = apvts.getRawParameterValue ("metSubdiv");
+    pMetSound       = apvts.getRawParameterValue ("metSound");
+    pMetVolume      = apvts.getRawParameterValue ("metVolume");
+    pMetAccent      = apvts.getRawParameterValue ("metAccent");
+    pMetTrainerOn   = apvts.getRawParameterValue ("metTrainerOn");
+    pMetTrainerInc  = apvts.getRawParameterValue ("metTrainerInc");
+    pMetTrainerBars = apvts.getRawParameterValue ("metTrainerBars");
+    pMetGapOn       = apvts.getRawParameterValue ("metGapOn");
+    pMetGapPlay     = apvts.getRawParameterValue ("metGapPlay");
+    pMetGapMute     = apvts.getRawParameterValue ("metGapMute");
+
     pVocGain       = apvts.getRawParameterValue ("vocGain");
     pVocGateOn     = apvts.getRawParameterValue ("vocGateOn");
     pVocGateThresh = apvts.getRawParameterValue ("vocGateThresh");
@@ -151,6 +164,39 @@ juce::AudioProcessorValueTreeState::ParameterLayout LiveDspProcessor::createPara
         "Reverb", NormalisableRange<float> { 0.0f, 1.0f, 0.01f }, 0.25f));
 
     //==========================================================================
+    // Metronome (guitar mode). The play/stop state is deliberately NOT a
+    // parameter (it always starts stopped); everything else persists.
+    //==========================================================================
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "metBpm", 1 },
+        "Metronome BPM", NormalisableRange<float> { 30.0f, 300.0f, 1.0f }, 120.0f));
+    layout.add (std::make_unique<AudioParameterInt>   (ParameterID { "metBeats", 1 },
+        "Metronome Beats/Bar", 1, 12, 4));
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "metSubdiv", 1 },
+        "Metronome Subdivision", StringArray { "1/4", "1/8", "Triplet", "1/16" }, 0));
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "metSound", 1 },
+        "Metronome Sound", StringArray { "Beep", "Wood", "Kick", "Hi-hat" }, 0));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { "metVolume", 1 },
+        "Metronome Volume", NormalisableRange<float> { 0.0f, 100.0f, 1.0f }, 80.0f));
+    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "metAccent", 1 },
+        "Metronome Accent", true));
+
+    // Speed trainer: +INC BPM every BARS bars (capped at 300 BPM).
+    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "metTrainerOn", 1 },
+        "Metronome Trainer On", false));
+    layout.add (std::make_unique<AudioParameterInt>   (ParameterID { "metTrainerInc", 1 },
+        "Metronome Trainer +BPM", 1, 20, 2));
+    layout.add (std::make_unique<AudioParameterInt>   (ParameterID { "metTrainerBars", 1 },
+        "Metronome Trainer Bars", 1, 16, 4));
+
+    // Gap trainer: PLAY audible bars, then MUTE silent bars (inner clock).
+    layout.add (std::make_unique<AudioParameterBool>  (ParameterID { "metGapOn", 1 },
+        "Metronome Gap On", false));
+    layout.add (std::make_unique<AudioParameterInt>   (ParameterID { "metGapPlay", 1 },
+        "Metronome Gap Play Bars", 1, 16, 4));
+    layout.add (std::make_unique<AudioParameterInt>   (ParameterID { "metGapMute", 1 },
+        "Metronome Gap Mute Bars", 1, 16, 4));
+
+    //==========================================================================
     // VOCALS (Vocal) mode parameters
     //==========================================================================
     // Input Gain: digital preamp for the quiet dynamic microphone (0..+24 dB).
@@ -228,6 +274,8 @@ void LiveDspProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     // Autotune runs on the mono microphone signal; the vocals chain works on a
     // stereo block (mono microphone copied onto both channels).
+    metronome.prepare (stereoSpec);
+
     autotune.prepare (monoSpec);
     vocalMickey.prepare (monoSpec);
     // Fixed grain for Diabolic/Mickey: 24 ms (~12 ms latency) keeps the octave
@@ -417,7 +465,21 @@ void LiveDspProcessor::processGuitar (juce::AudioBuffer<float>& buffer) noexcept
     for (int ch = 0; ch < numOut; ++ch)
         outputGain.applyGain (buffer.getWritePointer (ch), numSamples);
 
-    // 10) Recording tap: the fully processed output (no-op when not recording).
+    // 10) Metronome click on top of the processed output (own volume, not
+    // affected by the OUTPUT knob; audible even with the amp off).
+    metronome.setBpm         (pMetBpm->load());
+    metronome.setBeatsPerBar ((int) pMetBeats->load());
+    metronome.setSubdivision ((int) pMetSubdiv->load() + 1);   // choice 0..3 -> 1..4 ticks/beat
+    metronome.setSound       ((int) pMetSound->load());
+    metronome.setVolume      (pMetVolume->load());
+    metronome.setAccent      (pMetAccent->load() > 0.5f);
+    metronome.setTrainer     (pMetTrainerOn->load() > 0.5f,
+                              (int) pMetTrainerInc->load(), (int) pMetTrainerBars->load());
+    metronome.setGap         (pMetGapOn->load() > 0.5f,
+                              (int) pMetGapPlay->load(), (int) pMetGapMute->load());
+    metronome.process (buffer);
+
+    // 11) Recording tap: the fully processed output (no-op when not recording).
     recorder.write (buffer.getArrayOfReadPointers(), numSamples);
 }
 

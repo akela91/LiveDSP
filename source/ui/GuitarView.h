@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "../PluginProcessor.h"
 #include "../TunerComponent.h"
+#include "../MetronomeComponent.h"
 #include "LiveLookAndFeel.h"
 #include "Panels.h"
 #include "AppView.h"
@@ -50,10 +51,12 @@ private:
     juce::Label      statusLabel;
     juce::Label      latencyLabel;
     juce::TextButton tunerButton { "TUNER" };
+    juce::TextButton metroButton { "METRO" };
     juce::TextButton recButton   { "REC" };
     juce::TextButton menuButton  { juce::String::fromUTF8 ("‹ MENU") };
     CoffeeButton     coffeeButton;
     TunerComponent   tuner;
+    MetronomeComponent metro;
 
     juce::OwnedArray<PanelBase> row1, row2;
 
@@ -67,11 +70,17 @@ private:
     juce::Array<juce::File> irFiles;
     juce::Array<juce::File> presetFiles;
     bool tunerVisible { false };
+    bool metroVisible { false };
     bool recLit       { false };   // cached REC state, so the timer only repaints on change
+
+    // The tuner and the metronome slide into the same strip below the top bar,
+    // so they are mutually exclusive (opening one closes the other).
+    void updateTopPanels();
 
     static constexpr int baseW = 960;
     static constexpr int baseH = 470;
     static constexpr int tunerH = 138;
+    static constexpr int metroH = 264;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarView)
 };

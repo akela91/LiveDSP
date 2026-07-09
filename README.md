@@ -31,8 +31,8 @@ visual tuner are shared.
 
 | | |
 |---|---|
-| 🟦 **[LiveDSP-Setup-0.4.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.4.0/LiveDSP-Setup-0.4.0.exe)** | **Recommended** — one-click installer, adds a Start Menu shortcut |
-| 📦 **[LiveDSP-Standalone-0.4.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.4.0/LiveDSP-Standalone-0.4.0.exe)** | Portable — just run the `.exe`, nothing installed |
+| 🟦 **[LiveDSP-Setup-0.5.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.5.0/LiveDSP-Setup-0.5.0.exe)** | **Recommended** — one-click installer, adds a Start Menu shortcut |
+| 📦 **[LiveDSP-Standalone-0.5.0.exe](https://github.com/akela91/LiveDSP/releases/download/v0.5.0/LiveDSP-Standalone-0.5.0.exe)** | Portable — just run the `.exe`, nothing installed |
 
 All releases: [github.com/akela91/LiveDSP/releases](https://github.com/akela91/LiveDSP/releases)
 
@@ -45,7 +45,7 @@ All releases: [github.com/akela91/LiveDSP/releases](https://github.com/akela91/L
 ### Highlights
 
 - ⚡ **Ultra-low-latency Transpose** — a custom granular pitch shifter, ~12 ms (details below).
-- 🎸 **GuitarDSP** — noise gate, transpose, overdrive, NAM amp/rig, cabinet IR, 9-band EQ, delay, reverb, visual tuner.
+- 🎸 **GuitarDSP** — noise gate, transpose, overdrive, NAM amp/rig, cabinet IR, 9-band EQ, delay, reverb, visual tuner, practice metronome.
 - 🎤 **VoiceDSP** — autotune, low-cut, gate, warmth, compressor, "air", delay, reverb, brickwall limiter.
 - 🎚️ **ASIO** low-latency monitoring, per-mode input-channel selection, and input level meters.
 - 📦 A single `.exe` with **no runtime dependencies**, plus an optional one-click installer.
@@ -116,6 +116,18 @@ engine/quality drop-downs to fiddle with. Tuning tip: the granular colouration
 is smallest when **grain ⁄ 2 ≈ the note's period**, so a low-E power chord
 (~82 Hz, ~12 ms period) sits in a sweet spot around the 24 ms default; drop
 tunings want a slightly larger grain.
+
+**Metronome** (the **METRO** button next to TUNER slides it in): a full practice
+metronome with sample-accurate timing, mixed onto the output at its own volume
+(the OUTPUT knob does not affect it, and it also clicks with the amp off, so
+you can practice unplugged). Features: 30–300 BPM with **TAP tempo**, 1–12
+beats per bar with accented downbeat (toggleable), subdivisions (1/4, 1/8,
+triplet, 1/16 — played quieter), four synthesized sounds (**beep, woodblock,
+kick drum, hi-hat**), a **speed trainer** (+N BPM every M bars, capped at 300 —
+the big BPM readout follows live), a **gap trainer** (X audible bars, then Y
+muted bars to train your inner clock; the beat dots keep running in orange),
+and a live beat-dot display. All metronome settings persist with the state;
+the click is included in REC recordings.
 
 ### VoiceDSP module (vocals)
 

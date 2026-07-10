@@ -38,8 +38,8 @@ public:
     void resized() override
     {
         auto r = getLocalBounds();
-        minusButton.setBounds (r.removeFromLeft (28));
-        plusButton.setBounds  (r.removeFromRight (28));
+        minusButton.setBounds (r.removeFromLeft (24));
+        plusButton.setBounds  (r.removeFromRight (24));
         valueLabel.setBounds  (r.reduced (2, 0));
     }
 
@@ -268,8 +268,10 @@ public:
         };
 
         // Row B1: rhythm (BEATS + SUBDIV) | sound (SOUND + ACCENT).
+        // NOTE: the row is ~600 px wide — the cell widths below MUST fit in it,
+        // or the last cell gets truncated (its value box collapses to nothing).
         auto b1 = r.removeFromTop (52);
-        place (b1, &lBeats,  *beatsStep, 104);
+        place (b1, &lBeats,  *beatsStep, 92);
         place (b1, &lSubdiv, subdivBox, 118);
         groupGap (b1);
         place (b1, &lSound,  soundBox, 118);
@@ -278,13 +280,13 @@ public:
 
         // Row B2: speed trainer | gap trainer.
         auto b2 = r.removeFromTop (52);
-        place (b2, nullptr,   trainerButton, 92);
-        place (b2, &lTrInc,   *trIncStep, 104);
-        place (b2, &lTrBars,  *trBarsStep, 104);
+        place (b2, nullptr,   trainerButton, 84);
+        place (b2, &lTrInc,   *trIncStep, 92);
+        place (b2, &lTrBars,  *trBarsStep, 92);
         groupGap (b2);
-        place (b2, nullptr,   gapButton, 70);
-        place (b2, &lGapPlay, *gapPlayStep, 104);
-        place (b2, &lGapMute, *gapMuteStep, 104);
+        place (b2, nullptr,   gapButton, 62);
+        place (b2, &lGapPlay, *gapPlayStep, 92);
+        place (b2, &lGapMute, *gapMuteStep, 92);
     }
 
 private:

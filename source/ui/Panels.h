@@ -205,13 +205,10 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
-        g.fillRoundedRectangle (b, 8.0f);
+        LiveLookAndFeel::drawPanelFrame (g, b);
 
         auto header = b.removeFromTop (headerH);
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
-        g.fillRoundedRectangle (header, 8.0f);
-        g.fillRect (header.withTop (header.getCentreY()));
+        LiveLookAndFeel::drawPanelHeader (g, header);
 
         g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
@@ -388,13 +385,10 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
-        g.fillRoundedRectangle (b, 8.0f);
+        LiveLookAndFeel::drawPanelFrame (g, b);
 
         auto header = b.removeFromTop (24.0f);
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
-        g.fillRoundedRectangle (header, 8.0f);
-        g.fillRect (header.withTop (header.getCentreY()));
+        LiveLookAndFeel::drawPanelHeader (g, header);
         g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         auto textArea = header.toNearestInt().reduced (10, 0);
@@ -533,13 +527,10 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
-        g.fillRoundedRectangle (b, 8.0f);
+        LiveLookAndFeel::drawPanelFrame (g, b);
 
         auto header = b.removeFromTop (24.0f);
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
-        g.fillRoundedRectangle (header, 8.0f);
-        g.fillRect (header.withTop (header.getCentreY()));
+        LiveLookAndFeel::drawPanelHeader (g, header);
         g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         g.drawText ("INPUT", header.toNearestInt().reduced (10, 0), juce::Justification::centredLeft);
@@ -590,13 +581,10 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
-        g.fillRoundedRectangle (b, 8.0f);
+        LiveLookAndFeel::drawPanelFrame (g, b);
 
         auto header = b.removeFromTop (24.0f);
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
-        g.fillRoundedRectangle (header, 8.0f);
-        g.fillRect (header.withTop (header.getCentreY()));
+        LiveLookAndFeel::drawPanelHeader (g, header);
 
         g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
@@ -675,13 +663,10 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
-        g.fillRoundedRectangle (b, 8.0f);
+        LiveLookAndFeel::drawPanelFrame (g, b);
 
         auto header = b.removeFromTop (24.0f);
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
-        g.fillRoundedRectangle (header, 8.0f);
-        g.fillRect (header.withTop (header.getCentreY()));
+        LiveLookAndFeel::drawPanelHeader (g, header);
 
         g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
@@ -728,13 +713,10 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
-        g.fillRoundedRectangle (b, 8.0f);
+        LiveLookAndFeel::drawPanelFrame (g, b);
 
         auto header = b.removeFromTop (24.0f);
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
-        g.fillRoundedRectangle (header, 8.0f);
-        g.fillRect (header.withTop (header.getCentreY()));
+        LiveLookAndFeel::drawPanelHeader (g, header);
         g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         g.drawText (title, header.toNearestInt().reduced (10, 0), juce::Justification::centredLeft);
@@ -778,13 +760,10 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto b = getLocalBounds().toFloat();
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanel));
-        g.fillRoundedRectangle (b, 8.0f);
+        LiveLookAndFeel::drawPanelFrame (g, b);
 
         auto header = b.removeFromTop (24.0f);
-        g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));
-        g.fillRoundedRectangle (header, 8.0f);
-        g.fillRect (header.withTop (header.getCentreY()));
+        LiveLookAndFeel::drawPanelHeader (g, header);
         g.setColour (juce::Colour (LiveLookAndFeel::cAccent));
         g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
         g.drawText ("EQUALIZER", header.toNearestInt().reduced (10, 0).withTrimmedRight (24),

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(LiveDSP VERSION 0.5.1 LANGUAGES C CXX)
+project(LiveDSP VERSION 0.5.2 LANGUAGES C CXX)
 
 # ---------------------------------------------------------------------------
 # Global settings

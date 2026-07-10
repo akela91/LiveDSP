@@ -28,6 +28,7 @@ public:
         initButton (plusButton,  +1);
 
         valueLabel.setJustificationType (juce::Justification::centred);
+        valueLabel.setFont (juce::Font (juce::FontOptions (13.0f)));
         valueLabel.setColour (juce::Label::backgroundColourId, juce::Colour (LiveLookAndFeel::cPanelHead));
         valueLabel.setColour (juce::Label::textColourId,       juce::Colour (LiveLookAndFeel::cText));
         addAndMakeVisible (valueLabel);
@@ -190,8 +191,7 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto area = getLocalBounds().reduced (10);
-        g.setColour (juce::Colour (0xff1a1a1a));
-        g.fillRoundedRectangle (area.toFloat(), 6.0f);
+        LiveLookAndFeel::drawPanelFrame (g, area.toFloat());
 
         // Section separators (computed in resized()).
         g.setColour (juce::Colour (LiveLookAndFeel::cPanelHead));

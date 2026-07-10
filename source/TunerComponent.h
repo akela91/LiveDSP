@@ -4,6 +4,7 @@
 #include <climits>
 #include "PluginProcessor.h"
 #include "dsp/PitchDetector.h"
+#include "ui/LiveLookAndFeel.h"
 
 /**
     Visual guitar tuner. Polls the processor's raw input (Timer) and detects the
@@ -30,8 +31,7 @@ public:
     {
         auto area = getLocalBounds().reduced (10);
 
-        g.setColour (juce::Colour (0xff1a1a1a));
-        g.fillRoundedRectangle (area.toFloat(), 6.0f);
+        LiveLookAndFeel::drawPanelFrame (g, area.toFloat());
 
         const bool inTune = hasPitch && std::abs (cents) < 5.0f;
 

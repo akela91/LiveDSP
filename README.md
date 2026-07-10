@@ -31,8 +31,8 @@ visual tuner are shared.
 
 | | |
 |---|---|
-| 🟦 **[LiveDSP-Setup-0.5.1.exe](https://github.com/akela91/LiveDSP/releases/download/v0.5.1/LiveDSP-Setup-0.5.1.exe)** | **Recommended** — one-click installer, adds a Start Menu shortcut |
-| 📦 **[LiveDSP-Standalone-0.5.1.exe](https://github.com/akela91/LiveDSP/releases/download/v0.5.1/LiveDSP-Standalone-0.5.1.exe)** | Portable — just run the `.exe`, nothing installed |
+| 🟦 **[LiveDSP-Setup-0.5.2.exe](https://github.com/akela91/LiveDSP/releases/download/v0.5.2/LiveDSP-Setup-0.5.2.exe)** | **Recommended** — one-click installer, adds a Start Menu shortcut |
+| 📦 **[LiveDSP-Standalone-0.5.2.exe](https://github.com/akela91/LiveDSP/releases/download/v0.5.2/LiveDSP-Standalone-0.5.2.exe)** | Portable — just run the `.exe`, nothing installed |
 
 All releases: [github.com/akela91/LiveDSP/releases](https://github.com/akela91/LiveDSP/releases)
 
